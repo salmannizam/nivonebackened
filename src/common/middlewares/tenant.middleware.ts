@@ -26,19 +26,25 @@ export class TenantMiddleware implements NestMiddleware {
     // - Register: Gets tenantSlug from request body
     // - Login: Gets tenantSlug from request body and validates it matches user's tenant
     // Check both with and without /api prefix since NestJS global prefix handling can vary
+    // Also check for paths with query parameters (split by ?)
+    const pathWithoutQuery = path.split('?')[0];
+    
     if (
-      path === '/api/health' ||
-      path === '/health' ||
+      pathWithoutQuery === '/api/health' ||
+      pathWithoutQuery === '/health' ||
       path.startsWith('/api/admin') ||
       path.startsWith('/admin') ||
       path.includes('/admin/auth') ||
       path.includes('/admin/tenants') ||
-      path === '/api/auth/signup' ||
-      path === '/auth/signup' ||
-      path === '/api/auth/login' ||
-      path === '/auth/login' ||
-      path === '/api/auth/register' ||
-      path === '/auth/register'
+      pathWithoutQuery === '/api/auth/signup' ||
+      pathWithoutQuery === '/auth/signup' ||
+      pathWithoutQuery.endsWith('/auth/signup') ||
+      pathWithoutQuery === '/api/auth/login' ||
+      pathWithoutQuery === '/auth/login' ||
+      pathWithoutQuery.endsWith('/auth/login') ||
+      pathWithoutQuery === '/api/auth/register' ||
+      pathWithoutQuery === '/auth/register' ||
+      pathWithoutQuery.endsWith('/auth/register')
     ) {
       return next();
     }

@@ -37,20 +37,43 @@ export class BuildingsService {
       });
     }
     
-    // Count rooms for each building and add totalRooms
-    const buildingsWithRoomCount = await Promise.all(
-      buildings.map(async (building: any) => {
-        const buildingObj = building.toObject ? building.toObject() : building;
-        const roomCount = await this.roomModel.countDocuments({
-          tenantId,
-          buildingId: buildingObj._id,
-        }).exec();
-        return {
-          ...buildingObj,
-          totalRooms: roomCount,
-        };
-      })
+    // Count rooms for each building using aggregation for better performance and reliability
+    const buildingIds = buildings.map((building: any) => {
+      const buildingObj = building.toObject ? building.toObject() : building;
+      return building._id || buildingObj._id;
+    });
+    
+    // Aggregate room counts by buildingId
+    const roomCounts = await this.roomModel.aggregate([
+      {
+        $match: {
+          tenantId: tenantId,
+          buildingId: { $in: buildingIds },
+        },
+      },
+      {
+        $group: {
+          _id: '$buildingId',
+          count: { $sum: 1 },
+        },
+      },
+    ]).exec();
+    
+    // Create a map of buildingId to room count
+    const roomCountMap = new Map(
+      roomCounts.map((item: any) => [item._id.toString(), item.count])
     );
+    
+    // Add totalRooms to each building
+    const buildingsWithRoomCount = buildings.map((building: any) => {
+      const buildingObj = building.toObject ? building.toObject() : building;
+      const buildingId = (building._id || buildingObj._id)?.toString();
+      const roomCount = roomCountMap.get(buildingId) || 0;
+      return {
+        ...buildingObj,
+        totalRooms: roomCount,
+      };
+    });
     
     return buildingsWithRoomCount;
   }

@@ -12,8 +12,49 @@ async function bootstrap() {
   app.use(cookieParser());
 
   // Enable CORS
+  const corsOrigin = configService.get('CORS_ORIGIN') || '*';
+  const allowedDomain = configService.get('ALLOWED_DOMAIN'); // e.g., 'nivaasone.com'
+  
   app.enableCors({
-    origin: configService.get('CORS_ORIGIN') || '*',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // If CORS_ORIGIN is '*', allow all origins
+      if (corsOrigin === '*') {
+        return callback(null, true);
+      }
+
+      // If CORS_ORIGIN is a specific origin, check exact match
+      if (corsOrigin && corsOrigin !== '*') {
+        const allowedOrigins = corsOrigin.split(',').map(o => o.trim());
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+      }
+
+      // If ALLOWED_DOMAIN is set, allow all subdomains of that domain
+      if (allowedDomain) {
+        try {
+          const originUrl = new URL(origin);
+          const originHostname = originUrl.hostname.toLowerCase();
+          const domainLower = allowedDomain.toLowerCase();
+          
+          // Check if origin is the exact domain or a subdomain
+          if (originHostname === domainLower || originHostname.endsWith(`.${domainLower}`)) {
+            return callback(null, true);
+          }
+        } catch (e) {
+          // Invalid origin URL, reject
+          return callback(new Error('Invalid origin'));
+        }
+      }
+
+      // Reject by default
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
   });
 

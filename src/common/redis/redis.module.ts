@@ -32,19 +32,34 @@ import Redis from 'ioredis';
             // Support both REDIS_SENTINEL_NAME and REDIS_MASTER_NAME
             const sentinelName = configService.get<string>('REDIS_SENTINEL_NAME', '') ||
                                 configService.get<string>('REDIS_MASTER_NAME', 'mymaster');
-            return new Redis({
+            
+            // Redis Sentinel configuration
+            // password: Redis server password (for connecting to Redis master/replicas)
+            // sentinelPassword: Sentinel authentication password (for connecting to Sentinel instances)
+            const redisConfig: any = {
               sentinels: sentinelHosts,
               name: sentinelName,
-              password: password || undefined,
-              sentinelPassword: sentinelPassword || undefined,
               db: configService.get<number>('REDIS_DB', 0),
-              retryStrategy: (times) => {
+              retryStrategy: (times: number) => {
                 const delay = Math.min(times * 50, 2000);
                 return delay;
               },
               enableReadyCheck: false,
               maxRetriesPerRequest: null,
-            });
+            };
+
+            // Add Redis password if provided
+            if (password) {
+              redisConfig.password = password;
+            }
+
+            // Add Sentinel password if provided
+            if (sentinelPassword) {
+              redisConfig.sentinelPassword = sentinelPassword;
+            }
+
+            console.log(`🔌 Connecting to Redis Sentinel: ${sentinelName} via ${sentinelHosts.length} sentinel(s)`);
+            return new Redis(redisConfig);
           }
         }
 

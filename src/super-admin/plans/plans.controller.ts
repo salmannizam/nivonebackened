@@ -75,4 +75,15 @@ export class PlansController {
   markPaid(@Param('tenantId') tenantId: string, @Body() body: { amount: number }) {
     return this.plansService.markSubscriptionPaid(tenantId, body.amount);
   }
+
+  @Get('default/check')
+  async checkDefaultPlan() {
+    const hasDefault = await this.plansService.hasDefaultPlan();
+    return { hasDefault };
+  }
+
+  @Post(':id/set-default')
+  setDefaultPlan(@Param('id') id: string) {
+    return this.plansService.setDefaultPlan(id);
+  }
 }

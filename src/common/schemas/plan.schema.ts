@@ -45,6 +45,9 @@ export class Plan {
   @Prop({ default: true })
   isActive: boolean;
 
+  @Prop({ default: false })
+  isDefault: boolean; // Mark this plan as default for new tenant signups
+
   @Prop()
   createdAt?: Date;
 

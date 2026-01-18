@@ -21,6 +21,14 @@ export class PlansService {
   ) {}
 
   async create(createPlanDto: CreatePlanDto): Promise<PlanDocument> {
+    // If setting this plan as default, unset all other plans
+    if (createPlanDto.isDefault) {
+      await this.planModel.updateMany(
+        {},
+        { $set: { isDefault: false } }
+      ).exec();
+    }
+    
     const plan = new this.planModel(createPlanDto);
     return plan.save();
   }
@@ -59,25 +67,71 @@ export class PlansService {
 
   /**
    * Find default plan for new tenant signups
-   * Returns the lowest price active plan, or 'free' plan if exists
+   * Returns the plan marked as isDefault, or falls back to 'free' plan or lowest price plan
    */
   async findDefaultPlan(): Promise<PlanDocument | null> {
-    // First try to find a plan with slug 'free'
+    // First try to find a plan marked as default
+    const defaultPlan = await this.planModel.findOne({ isDefault: true, isActive: true }).exec();
+    if (defaultPlan) {
+      return defaultPlan;
+    }
+
+    // Fallback: try to find a plan with slug 'free'
     const freePlan = await this.planModel.findOne({ slug: 'free', isActive: true }).exec();
     if (freePlan) {
       return freePlan;
     }
 
-    // Otherwise, return the lowest price active plan
-    const defaultPlan = await this.planModel
+    // Last resort: return the lowest price active plan
+    const lowestPricePlan = await this.planModel
       .findOne({ isActive: true })
       .sort({ price: 1 })
       .exec();
 
-    return defaultPlan;
+    return lowestPricePlan;
+  }
+
+  /**
+   * Check if a default plan exists
+   */
+  async hasDefaultPlan(): Promise<boolean> {
+    const defaultPlan = await this.findDefaultPlan();
+    return defaultPlan !== null;
+  }
+
+  /**
+   * Set a plan as default (unset others)
+   */
+  async setDefaultPlan(planId: string): Promise<PlanDocument> {
+    // Unset all other plans as default
+    await this.planModel.updateMany(
+      { _id: { $ne: planId } },
+      { $set: { isDefault: false } }
+    ).exec();
+
+    // Set this plan as default
+    const plan = await this.planModel.findByIdAndUpdate(
+      planId,
+      { $set: { isDefault: true } },
+      { new: true }
+    ).exec();
+
+    if (!plan) {
+      throw new NotFoundException('Plan not found');
+    }
+
+    return plan;
   }
 
   async update(id: string, updatePlanDto: UpdatePlanDto): Promise<PlanDocument> {
+    // If setting this plan as default, unset all other plans
+    if (updatePlanDto.isDefault === true) {
+      await this.planModel.updateMany(
+        { _id: { $ne: id } },
+        { $set: { isDefault: false } }
+      ).exec();
+    }
+    
     const plan = await this.planModel.findByIdAndUpdate(id, updatePlanDto, { new: true }).exec();
     if (!plan) {
       throw new NotFoundException('Plan not found');

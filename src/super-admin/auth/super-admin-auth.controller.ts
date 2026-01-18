@@ -24,6 +24,7 @@ export class SuperAdminAuthController {
   ) {}
 
   @Public()
+  @ThrottleLevel(ThrottleLevelEnum.LOW) // Allow more admin login attempts
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(

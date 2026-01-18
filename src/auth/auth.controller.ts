@@ -18,6 +18,8 @@ import { Public } from '../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantId } from '../common/decorators/tenant.decorator';
 import { ConfigService } from '@nestjs/config';
+import { ThrottleLevel } from '../common/decorators/throttle-level.decorator';
+import { ThrottleLevel as ThrottleLevelEnum } from '../common/enums/throttle-level.enum';
 
 @Controller('auth')
 export class AuthController {
@@ -27,6 +29,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @ThrottleLevel(ThrottleLevelEnum.LOW) // Allow more login attempts
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -72,6 +75,7 @@ export class AuthController {
   }
 
   @Public()
+  @ThrottleLevel(ThrottleLevelEnum.LOW) // Allow more registration attempts
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
@@ -105,6 +109,7 @@ export class AuthController {
   }
 
   @Public()
+  @ThrottleLevel(ThrottleLevelEnum.LOW) // Allow more refresh token requests
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
@@ -158,6 +163,7 @@ export class AuthController {
   }
 
   @Public()
+  @ThrottleLevel(ThrottleLevelEnum.LOW) // Allow more signup attempts
   @Post('signup')
   @HttpCode(HttpStatus.CREATED)
   async signup(

@@ -306,16 +306,22 @@ export class AuthService {
 
     try {
       // Create tenant (unique index will prevent race condition duplicates)
+      const tenantLimits: any = {
+        rooms: defaultPlan.limits?.rooms ?? -1,
+        residents: defaultPlan.limits?.residents ?? -1,
+        staff: defaultPlan.limits?.staff ?? -1,
+      };
+      // Add buildings limit if it exists in the plan
+      if (defaultPlan.limits?.buildings !== undefined) {
+        tenantLimits.buildings = defaultPlan.limits.buildings;
+      }
+      
       const tenant = await this.tenantsService.create({
         name: signupDto.tenantName.trim(),
         slug: finalSlug,
         plan: defaultPlan.slug,
         status: 'active',
-        limits: {
-          rooms: defaultPlan.limits?.rooms ?? -1,
-          residents: defaultPlan.limits?.residents ?? -1,
-          staff: defaultPlan.limits?.staff ?? -1,
-        },
+        limits: tenantLimits,
       });
 
       // Get tenant ID (handle both Document and plain object)

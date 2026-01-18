@@ -35,6 +35,7 @@ import { FeatureFlagModule } from './common/modules/feature-flag.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TagsModule } from './tags/tags.module';
 import { PersonalNotesModule } from './personal-notes/personal-notes.module';
+import { ThrottlerModule } from './common/modules/throttler.module';
 
 @Module({
   imports: [
@@ -83,6 +84,7 @@ import { PersonalNotesModule } from './personal-notes/personal-notes.module';
     NotificationsModule,
     TagsModule,
     PersonalNotesModule,
+    ThrottlerModule,
   ],
   controllers: [AppController],
   providers: [AppService, TenantMiddleware],

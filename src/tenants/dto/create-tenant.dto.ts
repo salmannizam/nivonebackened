@@ -54,5 +54,6 @@ export class CreateTenantDto {
     rooms?: number;
     residents?: number;
     staff?: number;
+    buildings?: number;
   };
 }

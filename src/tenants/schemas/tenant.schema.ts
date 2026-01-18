@@ -24,6 +24,7 @@ export interface TenantLimits {
   rooms: number;
   residents: number;
   staff: number;
+  buildings?: number;
 }
 
 @Schema({ timestamps: true })
@@ -60,6 +61,7 @@ export class Tenant {
       rooms: { type: Number, default: 10 },
       residents: { type: Number, default: 100 },
       staff: { type: Number, default: 5 },
+      buildings: { type: Number, default: -1 }, // -1 means unlimited
     },
     default: {},
   })

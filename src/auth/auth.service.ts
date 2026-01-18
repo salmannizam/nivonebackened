@@ -151,6 +151,7 @@ export class AuthService {
         name: user.name,
         role: user.role,
         tenantId: user.tenantId,
+        preferredLanguage: (user as any).preferredLanguage || 'en',
       },
     };
   }

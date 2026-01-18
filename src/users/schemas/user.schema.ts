@@ -48,6 +48,9 @@ export class User {
     device?: string;
   }>;
 
+  @Prop({ type: String, enum: ['en', 'hi'], default: 'en' })
+  preferredLanguage?: string;
+
   @Prop()
   createdAt?: Date;
 

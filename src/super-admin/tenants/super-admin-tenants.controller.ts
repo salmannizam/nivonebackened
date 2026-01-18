@@ -8,7 +8,9 @@ import {
   Delete,
   UseGuards,
   Query,
+  Response,
 } from '@nestjs/common';
+import { Response as ExpressResponse } from 'express';
 import { SuperAdminTenantsService } from './super-admin-tenants.service';
 import { CreateTenantDto } from '../../tenants/dto/create-tenant.dto';
 import { UpdateTenantDto } from '../../tenants/dto/update-tenant.dto';
@@ -62,7 +64,27 @@ export class SuperAdminTenantsController {
   }
 
   @Post(':id/impersonate')
-  impersonate(@Param('id') id: string) {
-    return this.superAdminTenantsService.getImpersonationToken(id);
+  async impersonate(@Param('id') id: string, @Response() res: ExpressResponse) {
+    const result = await this.superAdminTenantsService.getImpersonationToken(id);
+    
+    // Set HTTP-only cookies for impersonation (same as regular login)
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true, // Must be true for sameSite: 'none' (cross-origin)
+      sameSite: 'none' as const, // Required for cross-origin cookies
+      maxAge: 60 * 60 * 1000, // 1 hour for impersonation
+      path: '/',
+      // Don't set domain - let browser handle cross-origin cookies
+    };
+    
+    res.cookie('accessToken', result.accessToken, cookieOptions);
+    res.cookie('refreshToken', result.refreshToken, cookieOptions);
+    
+    // Return tenant slug and user data for frontend redirect
+    return res.json({
+      tenantSlug: result.tenant.slug,
+      user: result.user,
+      tenant: result.tenant,
+    });
   }
 }

@@ -130,20 +130,29 @@ export class SuperAdminTenantsService {
     }
 
     // Create impersonation token (same as regular user token but with impersonation flag)
+    // Include tenantSlug in payload for middleware to work correctly
     const payload = {
       userId: owner._id.toString(),
       tenantId: tenant._id.toString(),
+      tenantSlug: tenant.slug, // Include tenant slug for middleware
       role: owner.role,
       email: owner.email,
       impersonatedBy: 'SUPER_ADMIN', // Flag for impersonation
     };
 
-    const token = this.jwtService.sign(payload, {
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '1h', // Shorter expiry for impersonation
+    });
+
+    // Also create refresh token for consistency
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: this.configService.get('JWT_REFRESH_SECRET'),
       expiresIn: '1h', // Shorter expiry for impersonation
     });
 
     return {
-      token,
+      accessToken,
+      refreshToken,
       tenant: {
         id: tenant._id,
         name: tenant.name,

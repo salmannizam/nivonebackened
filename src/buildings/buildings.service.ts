@@ -38,21 +38,37 @@ export class BuildingsService {
     }
     
     // Count rooms for each building
-    // Convert tenantId to ObjectId for proper matching (tenantId is always a string from decorator)
+    if (buildings.length === 0) {
+      return [];
+    }
+    
+    // Convert tenantId to ObjectId for proper matching
     const tenantObjectId = new Types.ObjectId(tenantId);
     
-    // Use Promise.all to count rooms for each building in parallel
+    // Count rooms for each building individually
+    // This ensures proper type matching between building._id (ObjectId) and room.buildingId (ObjectId)
     const buildingsWithRoomCount = await Promise.all(
       buildings.map(async (building: any) => {
         const buildingObj = building.toObject ? building.toObject() : building;
-        // building._id is an ObjectId from Mongoose document
-        const buildingId: any = building._id;
+        const buildingId = building._id; // This is already an ObjectId from Mongoose
+        const buildingIdStr = buildingId.toString();
         
-        // Count rooms for this building
-        const roomCount = await this.roomModel.countDocuments({
+        // Try query with ObjectId first (correct way)
+        let roomCount = await this.roomModel.countDocuments({
           tenantId: tenantObjectId,
-          buildingId: buildingId, // Mongoose will handle ObjectId matching
+          buildingId: buildingId,
         }).exec();
+        
+        // If no results, try with string format (fallback for data inconsistencies)
+        if (roomCount === 0) {
+          roomCount = await this.roomModel.countDocuments({
+            $or: [
+              { tenantId: tenantObjectId, buildingId: buildingId },
+              { tenantId: tenantId, buildingId: buildingIdStr },
+              { tenantId: tenantObjectId, buildingId: buildingIdStr },
+            ],
+          }).exec();
+        }
         
         return {
           ...buildingObj,

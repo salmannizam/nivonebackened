@@ -43,8 +43,9 @@ export class TenantMiddleware implements NestMiddleware {
       return next();
     }
 
-    // SaaS mode: prioritize JWT token payload (after login), then subdomain, query parameter, or request body
-    // First, try to extract from JWT token (for authenticated API calls after login)
+    // SaaS mode: Get tenant from JWT token payload (for authenticated requests) or request body/query
+    // API domain is same for all tenants, so we don't extract from subdomain
+    // Priority: 1) JWT token payload, 2) Request body, 3) Query parameter (dev/testing only)
     let tenantSlug: string | null = null;
     let tenantFromToken: TenantDocument | null = null;
     
@@ -105,28 +106,12 @@ export class TenantMiddleware implements NestMiddleware {
         throw e;
       }
       // If JWT parsing fails or other errors, continue with normal flow
-      // This allows fallback to subdomain/query parameter for login
     }
 
-    // If no tenant from token, try subdomain (for initial login or non-authenticated requests)
+    // If no tenant from token, try request body (for endpoints that send tenantSlug in body)
     if (!tenantSlug) {
-      const host = req.get('host') || '';
-      
-      // Check if host is an IP address (e.g., 192.168.1.10:3001)
-      const isIPAddress = /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(host);
-      
-      // Only extract subdomain if it's not an IP address
-      if (!isIPAddress) {
-        const subdomain = host.split('.')[0];
-        // Only use subdomain if it's a valid tenant slug (not www, api, localhost, or numeric)
-        if (subdomain && 
-            subdomain !== 'www' && 
-            subdomain !== 'api' && 
-            subdomain !== 'localhost' && 
-            !/^\d+$/.test(subdomain)) { // Don't treat numeric subdomains as tenant slugs
-          tenantSlug = subdomain;
-        }
-      }
+      const body = req.body || {};
+      tenantSlug = body.tenantSlug || null;
     }
     
     // Allow query parameter for localhost/IP testing (e.g., ?tenant=test)
@@ -165,8 +150,8 @@ export class TenantMiddleware implements NestMiddleware {
       req.tenant = tenant;
     } else {
       // For authenticated requests, tenant should come from JWT token
-      // For non-authenticated requests, provide helpful error message
-      throw new UnauthorizedException('Tenant not found. Please access via subdomain: {tenant-slug}.yourdomain.com or use ?tenant={tenant-slug} for localhost testing');
+      // For non-authenticated requests, tenant should come from request body (tenantSlug) or query parameter
+      throw new UnauthorizedException('Tenant not found. Please provide tenantSlug in request body or use ?tenant={tenant-slug} query parameter');
     }
 
     next();

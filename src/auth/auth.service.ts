@@ -58,9 +58,16 @@ export class AuthService {
       tenantId,
     );
 
+    // Fetch tenant details to include slug in token payload
+    const tenant = await this.tenantsService.findOne(tenantId);
+    if (!tenant) {
+      throw new UnauthorizedException('Tenant not found');
+    }
+
     const payload = {
       userId: user._id.toString(),
       tenantId: user.tenantId.toString(),
+      tenantSlug: tenant.slug,
       role: user.role,
       email: user.email,
     };
@@ -127,9 +134,11 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
+      // Include tenantSlug in new access token (from refresh token payload)
       const newPayload = {
         userId: payload.userId,
         tenantId: payload.tenantId,
+        tenantSlug: payload.tenantSlug, // Include tenant slug from refresh token
         role: payload.role,
         email: payload.email,
       };

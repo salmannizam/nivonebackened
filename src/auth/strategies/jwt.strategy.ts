@@ -67,6 +67,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const userObject = {
       userId: payload.userId,
       tenantId: payload.tenantId,
+      tenantSlug: payload.tenantSlug, // Include tenant slug from token payload
       role: payload.role,
       email: payload.email,
       _id: payload.userId, // Some code might expect _id

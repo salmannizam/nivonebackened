@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Building, BuildingDocument } from './schemas/building.schema';
 import { Room, RoomDocument } from '../rooms/schemas/room.schema';
 import { CreateBuildingDto } from './dto/create-building.dto';
@@ -37,43 +37,29 @@ export class BuildingsService {
       });
     }
     
-    // Count rooms for each building using aggregation for better performance and reliability
-    const buildingIds = buildings.map((building: any) => {
-      const buildingObj = building.toObject ? building.toObject() : building;
-      return building._id || buildingObj._id;
-    });
+    // Count rooms for each building
+    // Convert tenantId to ObjectId for proper matching (tenantId is always a string from decorator)
+    const tenantObjectId = new Types.ObjectId(tenantId);
     
-    // Aggregate room counts by buildingId
-    const roomCounts = await this.roomModel.aggregate([
-      {
-        $match: {
-          tenantId: tenantId,
-          buildingId: { $in: buildingIds },
-        },
-      },
-      {
-        $group: {
-          _id: '$buildingId',
-          count: { $sum: 1 },
-        },
-      },
-    ]).exec();
-    
-    // Create a map of buildingId to room count
-    const roomCountMap = new Map(
-      roomCounts.map((item: any) => [item._id.toString(), item.count])
+    // Use Promise.all to count rooms for each building in parallel
+    const buildingsWithRoomCount = await Promise.all(
+      buildings.map(async (building: any) => {
+        const buildingObj = building.toObject ? building.toObject() : building;
+        // building._id is an ObjectId from Mongoose document
+        const buildingId: any = building._id;
+        
+        // Count rooms for this building
+        const roomCount = await this.roomModel.countDocuments({
+          tenantId: tenantObjectId,
+          buildingId: buildingId, // Mongoose will handle ObjectId matching
+        }).exec();
+        
+        return {
+          ...buildingObj,
+          totalRooms: roomCount,
+        };
+      })
     );
-    
-    // Add totalRooms to each building
-    const buildingsWithRoomCount = buildings.map((building: any) => {
-      const buildingObj = building.toObject ? building.toObject() : building;
-      const buildingId = (building._id || buildingObj._id)?.toString();
-      const roomCount = roomCountMap.get(buildingId) || 0;
-      return {
-        ...buildingObj,
-        totalRooms: roomCount,
-      };
-    });
     
     return buildingsWithRoomCount;
   }

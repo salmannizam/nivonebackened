@@ -4,12 +4,20 @@ import { Model } from 'mongoose';
 import { Room, RoomDocument } from './schemas/room.schema';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { UpdateRoomDto } from './dto/update-room.dto';
+import { PlanLimitService, LimitType } from '../common/services/plan-limit.service';
 
 @Injectable()
 export class RoomsService {
-  constructor(@InjectModel(Room.name) private roomModel: Model<RoomDocument>) {}
+  constructor(
+    @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
+    private planLimitService: PlanLimitService,
+  ) {}
 
   async create(createRoomDto: CreateRoomDto, tenantId: string) {
+    // Check plan limit for rooms
+    const currentRoomCount = await this.roomModel.countDocuments({ tenantId }).exec();
+    await this.planLimitService.checkLimit(tenantId, LimitType.ROOMS, currentRoomCount);
+
     // Check if room number already exists in tenant
     const existing = await this.roomModel.findOne({
       tenantId,

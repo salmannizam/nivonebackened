@@ -5,12 +5,14 @@ import { Bed, BedDocument } from './schemas/bed.schema';
 import { CreateBedDto } from './dto/create-bed.dto';
 import { UpdateBedDto } from './dto/update-bed.dto';
 import { RoomDocument } from '../rooms/schemas/room.schema';
+import { PlanLimitService, LimitType } from '../common/services/plan-limit.service';
 
 @Injectable()
 export class BedsService {
   constructor(
     @InjectModel(Bed.name) private bedModel: Model<BedDocument>,
     @InjectModel('Room') private roomModel: Model<RoomDocument>,
+    private planLimitService: PlanLimitService,
   ) {}
 
   private transformBedResponse(bed: BedDocument): any {
@@ -24,6 +26,10 @@ export class BedsService {
   }
 
   async create(createBedDto: CreateBedDto, tenantId: string) {
+    // Check plan limit for beds (beds limit is same as rooms limit)
+    const currentBedCount = await this.bedModel.countDocuments({ tenantId }).exec();
+    await this.planLimitService.checkLimit(tenantId, LimitType.BEDS, currentBedCount);
+
     // Check if bed number already exists in this room
     const existing = await this.bedModel.findOne({
       tenantId,

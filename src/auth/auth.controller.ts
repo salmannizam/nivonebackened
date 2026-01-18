@@ -13,6 +13,7 @@ import { Response as ExpressResponse } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { SignupDto } from './dto/signup.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { TenantId } from '../common/decorators/tenant.decorator';
@@ -136,6 +137,18 @@ export class AuthController {
     res.clearCookie('refreshToken', { path: '/' });
     
     return res.json({ message: 'Logged out successfully' });
+  }
+
+  @Public()
+  @Post('signup')
+  @HttpCode(HttpStatus.CREATED)
+  async signup(
+    @Body() signupDto: SignupDto,
+    @Request() req: any,
+  ) {
+    const host = req.get('host') || '';
+    const result = await this.authService.signup(signupDto, host);
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)

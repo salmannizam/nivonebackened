@@ -53,6 +53,30 @@ export class PlansService {
     return plan;
   }
 
+  async findBySlug(slug: string): Promise<PlanDocument | null> {
+    return this.planModel.findOne({ slug, isActive: true }).exec();
+  }
+
+  /**
+   * Find default plan for new tenant signups
+   * Returns the lowest price active plan, or 'free' plan if exists
+   */
+  async findDefaultPlan(): Promise<PlanDocument | null> {
+    // First try to find a plan with slug 'free'
+    const freePlan = await this.planModel.findOne({ slug: 'free', isActive: true }).exec();
+    if (freePlan) {
+      return freePlan;
+    }
+
+    // Otherwise, return the lowest price active plan
+    const defaultPlan = await this.planModel
+      .findOne({ isActive: true })
+      .sort({ price: 1 })
+      .exec();
+
+    return defaultPlan;
+  }
+
   async update(id: string, updatePlanDto: UpdatePlanDto): Promise<PlanDocument> {
     const plan = await this.planModel.findByIdAndUpdate(id, updatePlanDto, { new: true }).exec();
     if (!plan) {
@@ -123,8 +147,15 @@ export class PlansService {
     const startDate = assignPlanDto.startDate ? new Date(assignPlanDto.startDate) : new Date();
     const nextBillingDate = this.calculateNextBillingDate(startDate, plan.billingCycle);
 
-    // Update tenant plan
-    await this.tenantsService.update(tenantId, { plan: plan.slug });
+    // Update tenant plan and limits
+    await this.tenantsService.update(tenantId, {
+      plan: plan.slug,
+      limits: {
+        rooms: plan.limits?.rooms ?? -1,
+        residents: plan.limits?.residents ?? -1,
+        staff: plan.limits?.staff ?? -1,
+      },
+    });
 
     // Sync plan features to tenant feature flags
     if (plan.features && Array.isArray(plan.features)) {

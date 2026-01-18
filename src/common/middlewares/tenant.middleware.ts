@@ -21,7 +21,7 @@ export class TenantMiddleware implements NestMiddleware {
   async use(req: RequestWithTenant, res: Response, next: NextFunction) {
     const path = req.path;
     
-    // Skip tenant middleware for health check and admin routes
+    // Skip tenant middleware for health check, admin routes, and public signup
     // Check both with and without /api prefix since NestJS global prefix handling can vary
     if (
       path === '/api/health' ||
@@ -29,7 +29,9 @@ export class TenantMiddleware implements NestMiddleware {
       path.startsWith('/api/admin') ||
       path.startsWith('/admin') ||
       path.includes('/admin/auth') ||
-      path.includes('/admin/tenants')
+      path.includes('/admin/tenants') ||
+      path === '/api/auth/signup' ||
+      path === '/auth/signup'
     ) {
       return next();
     }

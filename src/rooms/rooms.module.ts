@@ -4,11 +4,13 @@ import { RoomsController } from './rooms.controller';
 import { RoomsService } from './rooms.service';
 import { Room, RoomSchema } from './schemas/room.schema';
 import { FeatureFlagModule } from '../common/modules/feature-flag.module';
+import { PlanLimitModule } from '../common/modules/plan-limit.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Room.name, schema: RoomSchema }]),
     FeatureFlagModule,
+    PlanLimitModule,
   ],
   controllers: [RoomsController],
   providers: [RoomsService],

@@ -7,10 +7,16 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { UsersModule } from '../users/users.module';
+import { TenantsModule } from '../tenants/tenants.module';
+import { PlansModule } from '../super-admin/plans/plans.module';
+import { FeatureFlagModule } from '../common/modules/feature-flag.module';
 
 @Module({
   imports: [
     UsersModule,
+    TenantsModule,
+    PlansModule,
+    FeatureFlagModule,
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

@@ -4,12 +4,20 @@ import { Model } from 'mongoose';
 import { Staff, StaffDocument } from './schemas/staff.schema';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { UpdateStaffDto } from './dto/update-staff.dto';
+import { PlanLimitService, LimitType } from '../common/services/plan-limit.service';
 
 @Injectable()
 export class StaffService {
-  constructor(@InjectModel(Staff.name) private staffModel: Model<StaffDocument>) {}
+  constructor(
+    @InjectModel(Staff.name) private staffModel: Model<StaffDocument>,
+    private planLimitService: PlanLimitService,
+  ) {}
 
   async create(createStaffDto: CreateStaffDto, tenantId: string) {
+    // Check plan limit for staff
+    const currentStaffCount = await this.staffModel.countDocuments({ tenantId }).exec();
+    await this.planLimitService.checkLimit(tenantId, LimitType.STAFF, currentStaffCount);
+
     // Check if staff with same phone already exists in this tenant
     const existing = await this.staffModel.findOne({
       tenantId,

@@ -7,6 +7,7 @@ import { RoomsModule } from '../rooms/rooms.module';
 import { BedsModule } from '../beds/beds.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { FeatureFlagModule } from '../common/modules/feature-flag.module';
+import { PlanLimitModule } from '../common/modules/plan-limit.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { FeatureFlagModule } from '../common/modules/feature-flag.module';
     BedsModule,
     forwardRef(() => PaymentsModule), // Use forwardRef to avoid circular dependency
     FeatureFlagModule,
+    PlanLimitModule,
   ],
   controllers: [ResidentsController],
   providers: [ResidentsService],

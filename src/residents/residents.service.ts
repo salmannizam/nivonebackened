@@ -11,6 +11,7 @@ import { BedsService } from '../beds/beds.service';
 import { SecurityDepositService } from '../payments/security-deposit.service';
 import { RentPaymentService } from '../payments/rent-payment.service';
 import { ExtraPaymentService } from '../payments/extra-payment.service';
+import { PlanLimitService, LimitType } from '../common/services/plan-limit.service';
 
 @Injectable()
 export class ResidentsService {
@@ -22,9 +23,14 @@ export class ResidentsService {
     private rentPaymentService: RentPaymentService,
     private extraPaymentService: ExtraPaymentService,
     private eventEmitter: EventEmitter2,
+    private planLimitService: PlanLimitService,
   ) {}
 
   async create(createResidentDto: CreateResidentDto, tenantId: string): Promise<any> {
+    // Check plan limit for residents
+    const currentResidentCount = await this.residentModel.countDocuments({ tenantId }).exec();
+    await this.planLimitService.checkLimit(tenantId, LimitType.RESIDENTS, currentResidentCount);
+
     // Bed assignment is now REQUIRED - rent is sourced from bed.rent only
     if (!createResidentDto.bedId) {
       throw new BadRequestException('Bed assignment is required. Rent is calculated from bed rent only.');

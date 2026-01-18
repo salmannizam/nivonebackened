@@ -9,8 +9,12 @@ import Redis from 'ioredis';
       provide: 'REDIS_CLIENT',
       useFactory: (configService: ConfigService) => {
         const useSentinel = configService.get<string>('USE_REDIS_SENTINEL', 'false') === 'true';
-        const sentinelHostsStr = configService.get<string>('REDIS_SENTINEL_HOSTS', '');
+        // Support both REDIS_SENTINEL_HOSTS and REDIS_SENTINELS
+        const sentinelHostsStr = configService.get<string>('REDIS_SENTINEL_HOSTS', '') || 
+                                  configService.get<string>('REDIS_SENTINELS', '');
         const password = configService.get<string>('REDIS_PASSWORD', '');
+        const sentinelPassword = configService.get<string>('SENTINEL_PASSWORD', '') ||
+                                 configService.get<string>('SENTINEL_PASSRD', ''); // Support typo variant
         const redisHost = configService.get<string>('REDIS_HOST', 'localhost');
         const redisPort = configService.get<number>('REDIS_PORT', 6379);
 
@@ -25,14 +29,14 @@ import Redis from 'ioredis';
             .filter((s) => s.host);
 
           if (sentinelHosts.length > 0) {
-            const sentinelName = configService.get<string>(
-              'REDIS_SENTINEL_NAME',
-              'mymaster',
-            );
+            // Support both REDIS_SENTINEL_NAME and REDIS_MASTER_NAME
+            const sentinelName = configService.get<string>('REDIS_SENTINEL_NAME', '') ||
+                                configService.get<string>('REDIS_MASTER_NAME', 'mymaster');
             return new Redis({
               sentinels: sentinelHosts,
               name: sentinelName,
               password: password || undefined,
+              sentinelPassword: sentinelPassword || undefined,
               db: configService.get<number>('REDIS_DB', 0),
               retryStrategy: (times) => {
                 const delay = Math.min(times * 50, 2000);

@@ -5,6 +5,7 @@ import { BedsController } from './beds.controller';
 import { Bed, BedSchema } from './schemas/bed.schema';
 import { Room, RoomSchema } from '../rooms/schemas/room.schema';
 import { FeatureFlagModule } from '../common/modules/feature-flag.module';
+import { PlanLimitModule } from '../common/modules/plan-limit.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { FeatureFlagModule } from '../common/modules/feature-flag.module';
       { name: Room.name, schema: RoomSchema },
     ]),
     FeatureFlagModule,
+    PlanLimitModule,
   ],
   controllers: [BedsController],
   providers: [BedsService],

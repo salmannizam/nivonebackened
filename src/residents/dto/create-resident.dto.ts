@@ -5,8 +5,9 @@ import {
   IsDate,
   IsNumber,
   IsObject,
+  IsArray,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateResidentDto {
   @IsString()
@@ -75,4 +76,15 @@ export class CreateResidentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @IsDate()
+  @Type(() => Date)
+  expectedVacateDate?: Date;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }

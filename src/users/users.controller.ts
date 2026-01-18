@@ -91,6 +91,25 @@ export class UsersController {
     @TenantId() tenantId: string,
     @User() currentUser: any,
   ) {
+    const currentUserId = currentUser.userId || currentUser._id || currentUser.id;
+    
+    // Prevent users from modifying their own role or deactivating themselves
+    if (currentUserId && currentUserId.toString() === id.toString()) {
+      if (updateUserDto.role !== undefined) {
+        throw new ForbiddenException(
+          'You cannot change your own role. Please ask another administrator to update your role.',
+        );
+      }
+      if (updateUserDto.isActive === false) {
+        throw new ForbiddenException(
+          'You cannot deactivate your own account. Please ask another administrator to deactivate your account.',
+        );
+      }
+      // Allow updating other fields (name, email, password) for own profile
+      const { role, isActive, ...safeUpdateDto } = updateUserDto;
+      return this.usersService.update(id, safeUpdateDto, tenantId);
+    }
+    
     // Only OWNER can change user roles or update/deactivate OWNER users
     // MANAGER can update name, email, password, and activate/deactivate non-OWNER users
     const userRole = currentUser.role;
@@ -112,7 +131,7 @@ export class UsersController {
       return this.usersService.update(id, safeUpdateDto, tenantId);
     }
     
-    // OWNER can update anything
+    // OWNER can update anything for other users
     return this.usersService.update(id, updateUserDto, tenantId);
   }
 

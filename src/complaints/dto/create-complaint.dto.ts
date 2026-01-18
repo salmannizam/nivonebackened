@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
 
 export class CreateComplaintDto {
   @IsOptional()
@@ -13,6 +13,10 @@ export class CreateComplaintDto {
 
   @IsString()
   category: string;
+
+  @IsOptional()
+  @IsEnum(['open', 'in_progress', 'resolved', 'closed'])
+  status?: string;
 
   @IsOptional()
   @IsString()

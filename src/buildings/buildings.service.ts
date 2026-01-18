@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Building, BuildingDocument } from './schemas/building.schema';
+import { Room, RoomDocument } from '../rooms/schemas/room.schema';
 import { CreateBuildingDto } from './dto/create-building.dto';
 import { UpdateBuildingDto } from './dto/update-building.dto';
 
@@ -9,6 +10,7 @@ import { UpdateBuildingDto } from './dto/update-building.dto';
 export class BuildingsService {
   constructor(
     @InjectModel(Building.name) private buildingModel: Model<BuildingDocument>,
+    @InjectModel(Room.name) private roomModel: Model<RoomDocument>,
   ) {}
 
   async create(createBuildingDto: CreateBuildingDto, tenantId: string) {
@@ -35,7 +37,22 @@ export class BuildingsService {
       });
     }
     
-    return buildings;
+    // Count rooms for each building and add totalRooms
+    const buildingsWithRoomCount = await Promise.all(
+      buildings.map(async (building: any) => {
+        const buildingObj = building.toObject ? building.toObject() : building;
+        const roomCount = await this.roomModel.countDocuments({
+          tenantId,
+          buildingId: buildingObj._id,
+        }).exec();
+        return {
+          ...buildingObj,
+          totalRooms: roomCount,
+        };
+      })
+    );
+    
+    return buildingsWithRoomCount;
   }
 
   async findOne(id: string, tenantId: string) {

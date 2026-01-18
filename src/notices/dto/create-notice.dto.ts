@@ -1,4 +1,4 @@
-import { IsString, IsDate, IsOptional, IsArray, IsBoolean } from 'class-validator';
+import { IsString, IsDate, IsOptional, IsArray, IsBoolean, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateNoticeDto {
@@ -36,6 +36,15 @@ export class CreateNoticeDto {
   @IsDate()
   @Type(() => Date)
   endDate?: Date;
+
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  scheduleStartDate?: Date;
+
+  @IsOptional()
+  @IsEnum(['DRAFT', 'PUBLISHED', 'EXPIRED', 'INACTIVE', 'ARCHIVED'])
+  status?: string;
 
   @IsOptional()
   @IsBoolean()

@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsBoolean, IsDate, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsBoolean, IsDate, IsArray, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateSecurityDepositDto {
@@ -25,4 +25,9 @@ export class CreateSecurityDepositDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }

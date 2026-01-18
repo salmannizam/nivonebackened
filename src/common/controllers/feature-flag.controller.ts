@@ -126,10 +126,19 @@ export class FeatureFlagController {
   async updateUserFeaturePermissions(
     @TenantId() tenantId: string,
     @Param('userId') userId: string,
+    @User() currentUser: any,
     @Body() body: {
       permissions: Partial<Record<FeatureKey, { enabled: boolean; allowedActions?: string[] }>>;
     },
   ): Promise<any> {
+    // Prevent users from modifying their own permissions
+    const currentUserId = currentUser.userId || currentUser._id || currentUser.id;
+    if (currentUserId && currentUserId.toString() === userId.toString()) {
+      throw new ForbiddenException(
+        'You cannot modify your own permissions. Please ask another administrator to update your permissions.',
+      );
+    }
+
     try {
       await this.featureFlagService.updateUserFeaturePermissions(
         tenantId,

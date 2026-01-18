@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsDate, IsOptional, Min } from 'class-validator';
+import { IsString, IsNumber, IsDate, IsOptional, IsArray, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateExtraPaymentDto {
@@ -22,4 +22,9 @@ export class CreateExtraPaymentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }

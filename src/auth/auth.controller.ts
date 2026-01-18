@@ -44,13 +44,14 @@ export class AuthController {
     const result = await this.authService.login(loginDto, tenantId);
     
     // Set HTTP-only cookies
-    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    // For cross-origin (different domains), use sameSite: 'none' and secure: true
     const cookieOptions = {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict' as const,
+      secure: true, // Must be true for sameSite: 'none' (cross-origin)
+      sameSite: 'none' as const, // Required for cross-origin cookies
       maxAge: 24 * 60 * 60 * 1000, // 1 day for access token
       path: '/',
+      // Don't set domain - let browser handle cross-origin cookies
     };
     
     res.cookie('accessToken', result.accessToken, cookieOptions);
@@ -76,13 +77,14 @@ export class AuthController {
     const result = await this.authService.register(registerDto, tenantId);
     
     // Set HTTP-only cookies
-    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    // For cross-origin (different domains), use sameSite: 'none' and secure: true
     const cookieOptions = {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict' as const,
+      secure: true, // Must be true for sameSite: 'none' (cross-origin)
+      sameSite: 'none' as const, // Required for cross-origin cookies
       maxAge: 24 * 60 * 60 * 1000, // 1 day for access token
       path: '/',
+      // Don't set domain - let browser handle cross-origin cookies
     };
     
     res.cookie('accessToken', result.accessToken, cookieOptions);
@@ -114,13 +116,14 @@ export class AuthController {
     const result = await this.authService.refreshToken(refreshToken);
     
     // Set new access token in HTTP-only cookie
-    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    // For cross-origin (different domains), use sameSite: 'none' and secure: true
     res.cookie('accessToken', result.accessToken, {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
+      secure: true, // Must be true for sameSite: 'none' (cross-origin)
+      sameSite: 'none' as const, // Required for cross-origin cookies
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       path: '/',
+      // Don't set domain - let browser handle cross-origin cookies
     });
     
     return res.json({ success: true });
@@ -132,9 +135,19 @@ export class AuthController {
   async logout(@Request() req: any, @Response() res: ExpressResponse) {
     await this.authService.logout(req.user.userId);
     
-    // Clear HTTP-only cookies
-    res.clearCookie('accessToken', { path: '/' });
-    res.clearCookie('refreshToken', { path: '/' });
+    // Clear HTTP-only cookies (use same settings as when setting cookies)
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none' as const,
+      path: '/',
+    });
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none' as const,
+      path: '/',
+    });
     
     return res.json({ message: 'Logged out successfully' });
   }

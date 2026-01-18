@@ -55,7 +55,10 @@ async function bootstrap() {
       // Reject by default
       callback(new Error('Not allowed by CORS'));
     },
-    credentials: true,
+    credentials: true, // Required for cookies in cross-origin requests
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Content-Type'],
   });
 
   // Global validation pipe

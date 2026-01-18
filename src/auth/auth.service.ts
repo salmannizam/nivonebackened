@@ -12,6 +12,7 @@ import { UsersService } from '../users/users.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { PlansService } from '../super-admin/plans/plans.service';
 import { FeatureFlagService } from '../common/services/feature-flag.service';
+import { TenantDocument } from '../tenants/schemas/tenant.schema';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { SignupDto } from './dto/signup.dto';
@@ -52,7 +53,8 @@ export class AuthService {
     }
 
     // Reject Super Admin users on tenant login endpoint
-    if (user.role === 'SUPER_ADMIN') {
+    // UserRole enum only has OWNER, MANAGER, STAFF, so check as string
+    if ((user.role as string) === 'SUPER_ADMIN') {
       throw new UnauthorizedException('Super Admin must use /admin/auth/login');
     }
 
@@ -144,7 +146,12 @@ export class AuthService {
       throw new ForbiddenException(`Tenant is ${tenant.status}. Registration is not allowed.`);
     }
 
-    const tenantId = tenant._id.toString();
+    // Get tenant ID from Mongoose document (TenantDocument has _id)
+    const tenantDoc = tenant as TenantDocument;
+    const tenantId = tenantDoc._id?.toString();
+    if (!tenantId) {
+      throw new BadRequestException('Invalid tenant data');
+    }
 
     const existingUser = await this.usersService.findByEmail(
       registerDto.email,

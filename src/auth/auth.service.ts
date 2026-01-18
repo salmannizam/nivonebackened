@@ -67,8 +67,25 @@ export class AuthService {
     // This endpoint is ONLY for tenant users (Owner, Manager, Staff)
     // Super Admin must use /admin/auth/login
     
-    // Validate user by email/password (without tenantId to find user globally)
-    const user = await this.validateUser(loginDto.email, loginDto.password);
+    // First, validate user credentials (without tenant check)
+    const normalizedEmail = loginDto.email.toLowerCase().trim();
+    const user = await this.usersService['userModel'].findOne({ 
+      email: normalizedEmail 
+    }).exec();
+    
+    if (!user) {
+      throw new UnauthorizedException('User does not exist. Try with correct credentials or contact admin.');
+    }
+
+    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('User does not exist. Try with correct credentials or contact admin.');
+    }
+
+    // Reject Super Admin users on tenant login endpoint
+    if ((user.role as string) === 'SUPER_ADMIN') {
+      throw new UnauthorizedException('Super Admin must use /admin/auth/login');
+    }
     
     // Get tenantId from user record
     if (!user.tenantId) {
@@ -77,18 +94,20 @@ export class AuthService {
 
     const tenantId = user.tenantId.toString();
 
-    // Fetch tenant details to validate slug and include in token payload
+    // Fetch tenant details
     const tenant = await this.tenantsService.findOne(tenantId);
     if (!tenant) {
       throw new UnauthorizedException('Tenant not found');
     }
 
-    // CRITICAL: Validate tenant slug from frontend matches user's tenant slug
-    // This ensures user can only login from their own tenant URL
-    if (tenant.slug !== loginDto.tenantSlug) {
-      throw new UnauthorizedException(
-        `Invalid tenant. Please login from your tenant URL: ${tenant.slug}.yourdomain.com`
-      );
+    // If tenantSlug is not provided or doesn't match, return tenantSlug for redirect
+    if (!loginDto.tenantSlug || tenant.slug !== loginDto.tenantSlug) {
+      // Return tenant slug so frontend can redirect to correct subdomain
+      return {
+        redirect: true,
+        tenantSlug: tenant.slug,
+        message: `Please login from your tenant URL: ${tenant.slug}.yourdomain.com`,
+      };
     }
 
     // Validate tenant is active

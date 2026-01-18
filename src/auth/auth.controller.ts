@@ -39,6 +39,15 @@ export class AuthController {
     
     const result = await this.authService.login(loginDto);
     
+    // If redirect is needed (tenant slug mismatch or missing), return tenant slug for frontend redirect
+    if ((result as any).redirect) {
+      return res.json({
+        redirect: true,
+        tenantSlug: (result as any).tenantSlug,
+        message: (result as any).message,
+      });
+    }
+    
     // Set HTTP-only cookies
     // For cross-origin (different domains), use sameSite: 'none' and secure: true
     const cookieOptions = {

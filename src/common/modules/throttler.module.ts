@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ThrottlerModule as NestThrottlerModule, THROTTLER_OPTIONS } from '@nestjs/throttler';
+import { ThrottlerModule as NestThrottlerModule, ThrottlerStorage } from '@nestjs/throttler';
+import { THROTTLER_OPTIONS } from '@nestjs/throttler/dist/throttler.constants';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottleLevelGuard } from '../guards/throttle-level.guard';
 import { Reflector } from '@nestjs/core';
@@ -18,13 +19,14 @@ import { Reflector } from '@nestjs/core';
   providers: [
     {
       provide: APP_GUARD,
-      useFactory: (options: any, reflector: Reflector) => {
+      useFactory: (options: any, storageService: ThrottlerStorage, reflector: Reflector) => {
         return new ThrottleLevelGuard(
           options,
+          storageService,
           reflector,
         );
       },
-      inject: [THROTTLER_OPTIONS, Reflector],
+      inject: [THROTTLER_OPTIONS, ThrottlerStorage, Reflector],
     },
   ],
   exports: [NestThrottlerModule],

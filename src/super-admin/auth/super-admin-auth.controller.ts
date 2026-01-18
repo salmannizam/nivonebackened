@@ -15,6 +15,8 @@ import { SuperAdminLoginDto } from './dto/super-admin-login.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { SuperAdminAuthGuard } from '../../common/guards/super-admin-auth.guard';
 import { ConfigService } from '@nestjs/config';
+import { ThrottleLevel } from '../../common/decorators/throttle-level.decorator';
+import { ThrottleLevel as ThrottleLevelEnum } from '../../common/enums/throttle-level.enum';
 
 @Controller('admin/auth')
 export class SuperAdminAuthController {

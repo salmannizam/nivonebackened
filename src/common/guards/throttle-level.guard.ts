@@ -1,19 +1,20 @@
 import { Injectable, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModuleOptions, ThrottlerStorage } from '@nestjs/throttler';
 import { ThrottleLevel } from '../enums/throttle-level.enum';
 import { THROTTLE_LEVEL_KEY } from '../decorators/throttle-level.decorator';
 
 @Injectable()
 export class ThrottleLevelGuard extends ThrottlerGuard {
   constructor(
-    options: any,
-    private reflector: Reflector,
+    options: ThrottlerModuleOptions,
+    storageService: ThrottlerStorage,
+    reflector: Reflector,
   ) {
-    super(options);
+    super(options, storageService, reflector);
   }
 
-  protected getTracker(req: Record<string, any>): string {
+  protected async getTracker(req: Record<string, any>): Promise<string> {
     // Use IP address as tracker for rate limiting
     return req.ip || req.connection?.remoteAddress || req.headers?.['x-forwarded-for']?.split(',')[0] || 'unknown';
   }

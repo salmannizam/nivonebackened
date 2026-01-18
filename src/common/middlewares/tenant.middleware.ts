@@ -43,11 +43,13 @@ export class TenantMiddleware implements NestMiddleware {
       return next();
     }
 
-    // SaaS mode: Get tenant from JWT token payload (for authenticated requests) or request body/query
+    // SaaS mode: Get tenant from JWT token payload (for authenticated requests after login)
     // API domain is same for all tenants, so we don't extract from subdomain
-    // Priority: 1) JWT token payload, 2) Request body, 3) Query parameter (dev/testing only)
+    // Priority: 1) JWT token payload (for authenticated requests), 2) Request body (only for non-authenticated), 3) Query parameter (dev/testing only)
+    
     let tenantSlug: string | null = null;
     let tenantFromToken: TenantDocument | null = null;
+    let hasValidToken = false;
     
     try {
       // First try to get token from cookie (HTTP-only cookies)
@@ -64,6 +66,8 @@ export class TenantMiddleware implements NestMiddleware {
       if (token) {
         const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
         if (payload.tenantId) {
+          hasValidToken = true;
+          
           // Validate tenant exists in database and is active
           const tenant = await this.tenantModel.findById(new Types.ObjectId(payload.tenantId)).exec();
           
@@ -75,7 +79,7 @@ export class TenantMiddleware implements NestMiddleware {
             throw new ForbiddenException(`Tenant is ${tenant.status}. Access denied.`);
           }
 
-          // Use tenant slug from token payload if available, otherwise use from database
+          // Use tenant slug from token payload (always get from token after login)
           tenantSlug = payload.tenantSlug || tenant.slug;
           tenantFromToken = tenant;
           
@@ -108,8 +112,9 @@ export class TenantMiddleware implements NestMiddleware {
       // If JWT parsing fails or other errors, continue with normal flow
     }
 
-    // If no tenant from token, try request body (for endpoints that send tenantSlug in body)
-    if (!tenantSlug) {
+    // Only try request body if no valid token was found (for non-authenticated requests like login/register)
+    // After login, tenant MUST come from JWT token, not from request body
+    if (!hasValidToken && !tenantSlug) {
       const body = req.body || {};
       tenantSlug = body.tenantSlug || null;
     }

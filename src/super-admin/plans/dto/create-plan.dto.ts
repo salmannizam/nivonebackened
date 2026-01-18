@@ -29,6 +29,7 @@ export class CreatePlanDto {
     rooms?: number;
     residents?: number;
     staff?: number;
+    buildings?: number;
   };
 
   @IsOptional()

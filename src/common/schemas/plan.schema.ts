@@ -33,6 +33,7 @@ export class Plan {
       rooms: { type: Number, default: -1 }, // -1 means unlimited
       residents: { type: Number, default: -1 },
       staff: { type: Number, default: -1 },
+      buildings: { type: Number, default: -1 }, // -1 means unlimited
     },
     default: {},
   })
@@ -40,6 +41,7 @@ export class Plan {
     rooms: number;
     residents: number;
     staff: number;
+    buildings?: number;
   };
 
   @Prop({ default: true })

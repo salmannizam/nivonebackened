@@ -74,12 +74,12 @@ export class AuthService {
     }).exec();
     
     if (!user) {
-      throw new UnauthorizedException('User does not exist. Try with correct credentials or contact admin.');
+      throw new UnauthorizedException('Incorrect credentials. Please check your email and password.');
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('User does not exist. Try with correct credentials or contact admin.');
+      throw new UnauthorizedException('Incorrect credentials. Please check your email and password.');
     }
 
     // Reject Super Admin users on tenant login endpoint
@@ -101,8 +101,9 @@ export class AuthService {
     }
 
     // If tenantSlug is not provided or doesn't match, return tenantSlug for redirect
+    // This means credentials are correct, but user is on wrong subdomain
     if (!loginDto.tenantSlug || tenant.slug !== loginDto.tenantSlug) {
-      // Return tenant slug so frontend can redirect to correct subdomain
+      // Return tenant slug so frontend can redirect to correct subdomain login page
       return {
         redirect: true,
         tenantSlug: tenant.slug,

@@ -10,6 +10,12 @@ export class SignupDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(2)
+  @MaxLength(63) // DNS subdomain limit
+  tenantSlug: string; // Required: tenant slug (e.g., my-pg-name)
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(2)
   @MaxLength(100)
   ownerName: string;
 

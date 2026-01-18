@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -29,8 +30,18 @@ export class AuthService {
     @Inject('REDIS_CLIENT') private redis: any,
   ) {}
 
-  async validateUser(email: string, password: string, tenantId: string) {
-    const user = await this.usersService.findByEmail(email, tenantId);
+  async validateUser(email: string, password: string, tenantId?: string) {
+    // Normalize email (lowercase and trim)
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // If tenantId is provided, validate within that tenant
+    // Otherwise, find user globally and get tenantId from user record
+    const user = tenantId 
+      ? await this.usersService.findByEmail(normalizedEmail, tenantId)
+      : await this.usersService['userModel'].findOne({ 
+          email: normalizedEmail 
+        }).exec();
+    
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -40,29 +51,52 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    // Reject Super Admin users on tenant login endpoint
+    if (user.role === 'SUPER_ADMIN') {
+      throw new UnauthorizedException('Super Admin must use /admin/auth/login');
+    }
+
     const { password: _, ...result } = user.toObject();
     return result;
   }
 
-  async login(loginDto: LoginDto, tenantId: string) {
-    // Tenant login - requires tenant context from subdomain
+  async login(loginDto: LoginDto) {
+    // Tenant login - validate tenant slug matches user's tenant
     // This endpoint is ONLY for tenant users (Owner, Manager, Staff)
     // Super Admin must use /admin/auth/login
-    if (!tenantId) {
-      throw new UnauthorizedException('Tenant context required. Please access via your tenant subdomain.');
+    
+    // Validate user by email/password (without tenantId to find user globally)
+    const user = await this.validateUser(loginDto.email, loginDto.password);
+    
+    // Get tenantId from user record
+    if (!user.tenantId) {
+      throw new UnauthorizedException('User is not associated with a tenant');
     }
 
-    const user = await this.validateUser(
-      loginDto.email,
-      loginDto.password,
-      tenantId,
-    );
+    const tenantId = user.tenantId.toString();
 
-    // Fetch tenant details to include slug in token payload
+    // Fetch tenant details to validate slug and include in token payload
     const tenant = await this.tenantsService.findOne(tenantId);
     if (!tenant) {
       throw new UnauthorizedException('Tenant not found');
     }
+
+    // CRITICAL: Validate tenant slug from frontend matches user's tenant slug
+    // This ensures user can only login from their own tenant URL
+    if (tenant.slug !== loginDto.tenantSlug) {
+      throw new UnauthorizedException(
+        `Invalid tenant. Please login from your tenant URL: ${tenant.slug}.yourdomain.com`
+      );
+    }
+
+    // Validate tenant is active
+    if (tenant.status !== 'active') {
+      throw new ForbiddenException(`Tenant is ${tenant.status}. Access denied.`);
+    }
+
+    // Check subscription status (if subscription module is available)
+    // Note: Subscription check is also done in middleware for subsequent requests
+    // This is a basic check during login
 
     const payload = {
       userId: user._id.toString(),
@@ -99,26 +133,38 @@ export class AuthService {
     };
   }
 
-  async register(registerDto: RegisterDto, tenantId: string) {
+  async register(registerDto: RegisterDto) {
+    // Get tenant by slug from request body
+    const tenant = await this.tenantsService.findBySlug(registerDto.tenantSlug);
+    if (!tenant) {
+      throw new BadRequestException(`Tenant with slug '${registerDto.tenantSlug}' not found`);
+    }
+
+    if (tenant.status !== 'active') {
+      throw new ForbiddenException(`Tenant is ${tenant.status}. Registration is not allowed.`);
+    }
+
+    const tenantId = tenant._id.toString();
+
     const existingUser = await this.usersService.findByEmail(
       registerDto.email,
       tenantId,
     );
     if (existingUser) {
-      throw new BadRequestException('User already exists');
+      throw new BadRequestException('User already exists in this tenant');
     }
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const user = await this.usersService.create({
-      ...registerDto,
+      email: registerDto.email,
       password: hashedPassword,
+      name: registerDto.name,
       tenantId,
       role: registerDto.role || UserRole.STAFF,
     });
 
     return this.login(
-      { email: registerDto.email, password: registerDto.password },
-      tenantId,
+      { email: registerDto.email, password: registerDto.password, tenantSlug: registerDto.tenantSlug },
     );
   }
 
@@ -173,6 +219,7 @@ export class AuthService {
   /**
    * Tenant self-signup - creates tenant, owner user, and assigns default plan
    * Only allowed from root domain (no tenant subdomain)
+   * Tenant slug is provided by frontend (admin or tenant during signup)
    */
   async signup(signupDto: SignupDto, requestHost: string): Promise<{ tenantSlug: string; message: string }> {
     // Validate signup is from root domain (not tenant subdomain)
@@ -181,39 +228,36 @@ export class AuthService {
       throw new BadRequestException('Signup is only allowed from the root domain.');
     }
 
-    // Generate tenant slug from tenant name
-    let tenantSlug = this.generateSlug(signupDto.tenantName);
+    // Use tenant slug from request body (provided by frontend)
+    const tenantSlug = signupDto.tenantSlug.toLowerCase().trim();
     
-    // Validate slug is not empty and not reserved
+    // Validate slug format
     if (!tenantSlug || tenantSlug.length < 2) {
-      throw new BadRequestException('Tenant name must contain at least 2 alphanumeric characters.');
+      throw new BadRequestException('Tenant slug must contain at least 2 characters.');
+    }
+
+    if (tenantSlug.length > 63) {
+      throw new BadRequestException('Tenant slug must be 63 characters or less (DNS subdomain limit).');
+    }
+
+    // Validate slug format (alphanumeric and hyphens only)
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/.test(tenantSlug)) {
+      throw new BadRequestException('Tenant slug can only contain lowercase letters, numbers, and hyphens. It must start and end with alphanumeric characters.');
     }
 
     // Check for reserved slugs
     const reservedSlugs = ['admin', 'api', 'www', 'app', 'mail', 'ftp', 'localhost', 'test', 'staging', 'dev', 'prod', 'www2', 'www3'];
-    if (reservedSlugs.includes(tenantSlug.toLowerCase())) {
-      throw new BadRequestException('This tenant name is reserved. Please choose a different name.');
+    if (reservedSlugs.includes(tenantSlug)) {
+      throw new BadRequestException('This tenant slug is reserved. Please choose a different slug.');
     }
 
-    // Check if slug is already taken (with retry logic for race conditions)
-    let attempts = 0;
-    const maxAttempts = 5;
-    let finalSlug = tenantSlug;
-    
-    while (attempts < maxAttempts) {
-      const existingTenant = await this.tenantsService.findBySlug(finalSlug);
-      if (!existingTenant) {
-        break; // Slug is available
-      }
-      
-      // If slug exists, append a random number
-      attempts++;
-      finalSlug = `${tenantSlug}-${Math.floor(Math.random() * 10000)}`;
+    // Check if slug is already taken
+    const existingTenant = await this.tenantsService.findBySlug(tenantSlug);
+    if (existingTenant) {
+      throw new BadRequestException('This tenant slug is already taken. Please choose a different slug.');
     }
 
-    if (attempts >= maxAttempts) {
-      throw new BadRequestException('Unable to generate a unique tenant slug. Please try a different name.');
-    }
+    const finalSlug = tenantSlug;
 
     // Get default plan (lowest price active plan, or 'free' plan)
     const defaultPlan = await this.plansService.findDefaultPlan();

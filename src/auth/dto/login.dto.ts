@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsNotEmpty } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -8,7 +8,7 @@ export class LoginDto {
   @MinLength(6)
   password: string;
 
-  @IsOptional()
   @IsString()
-  tenantSlug?: string;
+  @IsNotEmpty()
+  tenantSlug: string; // Required: tenant slug from subdomain (e.g., tenant-slug.yourdomain.com)
 }

@@ -21,7 +21,10 @@ export class TenantMiddleware implements NestMiddleware {
   async use(req: RequestWithTenant, res: Response, next: NextFunction) {
     const path = req.path;
     
-    // Skip tenant middleware for health check, admin routes, and public signup
+    // Skip tenant middleware for health check, admin routes, public signup, login, and register
+    // - Signup: Gets tenantSlug from request body
+    // - Register: Gets tenantSlug from request body
+    // - Login: Gets tenantSlug from request body and validates it matches user's tenant
     // Check both with and without /api prefix since NestJS global prefix handling can vary
     if (
       path === '/api/health' ||
@@ -31,7 +34,11 @@ export class TenantMiddleware implements NestMiddleware {
       path.includes('/admin/auth') ||
       path.includes('/admin/tenants') ||
       path === '/api/auth/signup' ||
-      path === '/auth/signup'
+      path === '/auth/signup' ||
+      path === '/api/auth/login' ||
+      path === '/auth/login' ||
+      path === '/api/auth/register' ||
+      path === '/auth/register'
     ) {
       return next();
     }
@@ -123,14 +130,9 @@ export class TenantMiddleware implements NestMiddleware {
     }
     
     // Allow query parameter for localhost/IP testing (e.g., ?tenant=test)
+    // Note: This is only for non-authenticated requests. After login, tenant comes from JWT token.
     if (!tenantSlug) {
       tenantSlug = req.query.tenant as string || null;
-    }
-
-    // For login endpoint, allow tenant slug from request body (since API domain is same for all tenants)
-    if (!tenantSlug && (path === '/api/auth/login' || path === '/auth/login')) {
-      const body = req.body || {};
-      tenantSlug = body.tenantSlug || null;
     }
 
     if (tenantSlug) {
@@ -162,10 +164,8 @@ export class TenantMiddleware implements NestMiddleware {
       req.tenantId = tenant._id.toString();
       req.tenant = tenant;
     } else {
-      // Provide helpful error message based on the endpoint
-      if (path === '/api/auth/login' || path === '/auth/login') {
-        throw new UnauthorizedException('Tenant slug required. Please provide tenantSlug in the request body or use ?tenant={tenant-slug} query parameter.');
-      }
+      // For authenticated requests, tenant should come from JWT token
+      // For non-authenticated requests, provide helpful error message
       throw new UnauthorizedException('Tenant not found. Please access via subdomain: {tenant-slug}.yourdomain.com or use ?tenant={tenant-slug} for localhost testing');
     }
 

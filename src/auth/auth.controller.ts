@@ -31,17 +31,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() loginDto: LoginDto,
-    @TenantId() tenantId: string,
     @Response() res: ExpressResponse,
   ) {
-    // Tenant login requires tenant context from subdomain
+    // Tenant login - tenant is extracted from user record after validation
     // This endpoint is ONLY for tenant users (Owner, Manager, Staff)
     // Super Admin must use /admin/auth/login
-    if (!tenantId) {
-      throw new UnauthorizedException('Tenant context required. Please access via your tenant subdomain.');
-    }
     
-    const result = await this.authService.login(loginDto, tenantId);
+    const result = await this.authService.login(loginDto);
     
     // Set HTTP-only cookies
     // For cross-origin (different domains), use sameSite: 'none' and secure: true
@@ -71,10 +67,10 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   async register(
     @Body() registerDto: RegisterDto,
-    @TenantId() tenantId: string,
     @Response() res: ExpressResponse,
   ) {
-    const result = await this.authService.register(registerDto, tenantId);
+    // Register gets tenantSlug from request body (frontend sends it)
+    const result = await this.authService.register(registerDto);
     
     // Set HTTP-only cookies
     // For cross-origin (different domains), use sameSite: 'none' and secure: true

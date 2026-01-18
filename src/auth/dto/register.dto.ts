@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional, IsEnum } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsEnum, IsNotEmpty } from 'class-validator';
 import { UserRole } from '../../common/decorators/roles.decorator';
 
 export class RegisterDto {
@@ -11,6 +11,10 @@ export class RegisterDto {
 
   @IsString()
   name: string;
+
+  @IsString()
+  @IsNotEmpty()
+  tenantSlug: string; // Required: tenant slug to create user in
 
   @IsOptional()
   @IsEnum(UserRole)

@@ -10,6 +10,7 @@ export enum NotificationEvent {
   PAYMENT_PAID = 'payment.paid',
   SECURITY_DEPOSIT_RECEIVED = 'security_deposit.received',
   RESIDENT_VACATED = 'resident.vacated',
+  OTP_SENT = 'otp.sent', // OTP for resident portal login
 }
 
 /**

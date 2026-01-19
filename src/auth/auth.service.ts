@@ -174,8 +174,11 @@ export class AuthService {
       throw new BadRequestException('Invalid tenant data');
     }
 
+    // Normalize email to lowercase before saving
+    const normalizedEmail = registerDto.email.toLowerCase().trim();
+    
     const existingUser = await this.usersService.findByEmail(
-      registerDto.email,
+      normalizedEmail,
       tenantId,
     );
     if (existingUser) {
@@ -184,7 +187,7 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(registerDto.password, 10);
     const user = await this.usersService.create({
-      email: registerDto.email,
+      email: normalizedEmail,
       password: hashedPassword,
       name: registerDto.name,
       tenantId,

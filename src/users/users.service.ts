@@ -15,9 +15,12 @@ export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
+    // Normalize email to lowercase before saving
+    const normalizedEmail = createUserDto.email.toLowerCase().trim();
+    
     // Check if user already exists in this tenant
     const existing = await this.userModel.findOne({
-      email: createUserDto.email,
+      email: normalizedEmail,
       tenantId: createUserDto.tenantId,
     });
 
@@ -29,6 +32,7 @@ export class UsersService {
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     const user = new this.userModel({
       ...createUserDto,
+      email: normalizedEmail,
       password: hashedPassword,
     });
     return user.save();
@@ -72,8 +76,10 @@ export class UsersService {
   }
 
   async findByEmail(email: string, tenantId: string): Promise<UserDocument | null> {
+    // Normalize email to lowercase for case-insensitive comparison
+    const normalizedEmail = email.toLowerCase().trim();
     const user = await this.userModel
-      .findOne({ email, tenantId })
+      .findOne({ email: normalizedEmail, tenantId })
       .exec();
     return user;
   }
@@ -85,6 +91,11 @@ export class UsersService {
   ): Promise<User> {
     // If password is being updated, verify current password first
     const updateData: any = { ...updateUserDto };
+    
+    // Normalize email to lowercase if being updated
+    if (updateData.email) {
+      updateData.email = updateData.email.toLowerCase().trim();
+    }
     
     if (updateUserDto.password) {
       // If currentPassword is provided, verify it

@@ -28,15 +28,18 @@ export class SuperAdminTenantsService {
     // Create tenant first
     const tenant = await this.tenantsService.create(tenantData) as any;
 
+    // Normalize email to lowercase before saving
+    const normalizedEmail = ownerEmail.toLowerCase().trim();
+    
     // Check if owner user already exists
-    const existingUser = await this.usersService.findByEmail(ownerEmail, tenant._id.toString());
+    const existingUser = await this.usersService.findByEmail(normalizedEmail, tenant._id.toString());
     if (existingUser) {
       throw new BadRequestException('User with this email already exists in this tenant');
     }
 
     // Create owner user for the tenant
     await this.usersService.create({
-      email: ownerEmail,
+      email: normalizedEmail,
       password: ownerPassword,
       name: ownerName,
       role: UserRole.OWNER,

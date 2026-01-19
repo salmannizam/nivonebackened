@@ -46,6 +46,9 @@ export enum FeatureKey {
   // Notifications
   NOTIFICATIONS_EMAIL = 'notifications.email',
   NOTIFICATIONS_SMS = 'notifications.sms',
+  
+  // Resident Portal
+  RESIDENT_PORTAL = 'residentPortal',
 }
 
 @Schema({ timestamps: true })

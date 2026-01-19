@@ -18,8 +18,11 @@ export class SuperAdminService {
   ) {}
 
   async create(createSuperAdminDto: CreateSuperAdminDto): Promise<SuperAdmin> {
+    // Normalize email to lowercase before saving
+    const normalizedEmail = createSuperAdminDto.email.toLowerCase().trim();
+    
     const existing = await this.superAdminModel.findOne({
-      email: createSuperAdminDto.email,
+      email: normalizedEmail,
     });
 
     if (existing) {
@@ -29,6 +32,7 @@ export class SuperAdminService {
     const hashedPassword = await bcrypt.hash(createSuperAdminDto.password, 10);
     const superAdmin = new this.superAdminModel({
       ...createSuperAdminDto,
+      email: normalizedEmail,
       password: hashedPassword,
     });
     return superAdmin.save();
@@ -50,7 +54,9 @@ export class SuperAdminService {
   }
 
   async findByEmail(email: string): Promise<SuperAdminDocument> {
-    const superAdmin = await this.superAdminModel.findOne({ email }).exec();
+    // Normalize email to lowercase for case-insensitive comparison
+    const normalizedEmail = email.toLowerCase().trim();
+    const superAdmin = await this.superAdminModel.findOne({ email: normalizedEmail }).exec();
     if (!superAdmin) {
       throw new NotFoundException('Super Admin not found');
     }
@@ -73,14 +79,21 @@ export class SuperAdminService {
     id: string,
     updateSuperAdminDto: UpdateSuperAdminDto,
   ): Promise<SuperAdmin> {
-    if (updateSuperAdminDto.password) {
-      updateSuperAdminDto.password = await bcrypt.hash(
-        updateSuperAdminDto.password,
+    const updateData: any = { ...updateSuperAdminDto };
+    
+    // Normalize email to lowercase if being updated
+    if (updateData.email) {
+      updateData.email = updateData.email.toLowerCase().trim();
+    }
+    
+    if (updateData.password) {
+      updateData.password = await bcrypt.hash(
+        updateData.password,
         10,
       );
     }
     const superAdmin = await this.superAdminModel
-      .findByIdAndUpdate(id, updateSuperAdminDto, { new: true })
+      .findByIdAndUpdate(id, updateData, { new: true })
       .select('-password')
       .exec();
     if (!superAdmin) {

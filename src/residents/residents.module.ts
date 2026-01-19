@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ResidentsController } from './residents.controller';
 import { ResidentsService } from './residents.service';
 import { Resident, ResidentSchema } from './schemas/resident.schema';
+import { Person, PersonSchema } from './schemas/person.schema';
 import { RoomsModule } from '../rooms/rooms.module';
 import { BedsModule } from '../beds/beds.module';
 import { PaymentsModule } from '../payments/payments.module';
@@ -11,7 +12,10 @@ import { PlanLimitModule } from '../common/modules/plan-limit.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Resident.name, schema: ResidentSchema }]),
+    MongooseModule.forFeature([
+      { name: Resident.name, schema: ResidentSchema },
+      { name: Person.name, schema: PersonSchema },
+    ]),
     RoomsModule,
     BedsModule,
     forwardRef(() => PaymentsModule), // Use forwardRef to avoid circular dependency

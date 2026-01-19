@@ -36,6 +36,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { TagsModule } from './tags/tags.module';
 import { PersonalNotesModule } from './personal-notes/personal-notes.module';
 import { ThrottlerModule } from './common/modules/throttler.module';
+import { ResidentAuthModule } from './resident-auth/resident-auth.module';
+import { ResidentPortalModule } from './resident-portal/resident-portal.module';
 
 @Module({
   imports: [
@@ -85,6 +87,8 @@ import { ThrottlerModule } from './common/modules/throttler.module';
     TagsModule,
     PersonalNotesModule,
     ThrottlerModule,
+    ResidentAuthModule,
+    ResidentPortalModule,
   ],
   controllers: [AppController],
   providers: [AppService, TenantMiddleware],
@@ -104,6 +108,8 @@ export class AppModule implements NestModule {
         { path: 'api/auth/register', method: RequestMethod.ALL },
         { path: 'auth/signup', method: RequestMethod.ALL },
         { path: 'api/auth/signup', method: RequestMethod.ALL },
+        { path: 'resident-auth/(.*)', method: RequestMethod.ALL },
+        { path: 'api/resident-auth/(.*)', method: RequestMethod.ALL },
       )
       .forRoutes('*');
   }

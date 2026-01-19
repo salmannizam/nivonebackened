@@ -212,6 +212,7 @@ export class NotificationsService {
       [NotificationEvent.PAYMENT_PAID]: 'Payment Received',
       [NotificationEvent.SECURITY_DEPOSIT_RECEIVED]: 'Security Deposit Received',
       [NotificationEvent.RESIDENT_VACATED]: 'Resident Vacated',
+      [NotificationEvent.OTP_SENT]: 'OTP for Resident Portal',
     };
     return subjects[event] || 'Notification';
   }

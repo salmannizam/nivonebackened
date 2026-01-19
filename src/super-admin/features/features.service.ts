@@ -87,6 +87,7 @@ export class FeaturesService {
       { name: 'Visitors', key: FeatureKey.VISITORS, category: FeatureCategory.OPERATIONS, description: 'Track visitor entries and exits' },
       { name: 'Gate Passes', key: FeatureKey.GATE_PASSES, category: FeatureCategory.OPERATIONS, description: 'Issue and manage gate passes' },
       { name: 'Notices', key: FeatureKey.NOTICES, category: FeatureCategory.OPERATIONS, description: 'Create and manage notices for residents' },
+      { name: 'Resident Portal', key: FeatureKey.RESIDENT_PORTAL, category: FeatureCategory.OPERATIONS, description: 'Enable resident login portal for self-service access' },
       
       // Management
       { name: 'Staff', key: FeatureKey.STAFF, category: FeatureCategory.MANAGEMENT, description: 'Manage staff members and their roles' },

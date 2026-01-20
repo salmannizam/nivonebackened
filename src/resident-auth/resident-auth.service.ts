@@ -43,15 +43,15 @@ export class ResidentAuthService {
     let person = await this.personModel.findOne({ mobile: normalizedMobile }).exec();
     
     if (!person) {
-      // Person doesn't exist - create one (name will be updated when resident is created)
+      // Person doesn't exist - create one (name will be updated from resident record)
       person = await this.personModel.create({
         mobile: normalizedMobile,
         name: 'Resident', // Placeholder, will be updated from resident record
       });
     }
 
-    // Check if person has any active residents
-    const activeResidents = await this.residentModel
+    // Check if person has any active residents (by personId)
+    let activeResidents = await this.residentModel
       .find({
         personId: person._id,
         status: 'ACTIVE',
@@ -60,10 +60,53 @@ export class ResidentAuthService {
       .populate('tenantId')
       .exec();
 
+    // If no residents found by personId, check by phone number and link them
     if (activeResidents.length === 0) {
-      throw new ForbiddenException(
-        'No active residency found. Please contact your PG administrator.',
-      );
+      const residentsByPhone = await this.residentModel
+        .find({
+          phone: normalizedMobile,
+          status: 'ACTIVE',
+          archived: { $ne: true },
+        })
+        .populate('tenantId')
+        .exec();
+
+      if (residentsByPhone.length === 0) {
+        throw new ForbiddenException(
+          'No active residency found. Please contact your PG administrator.',
+        );
+      }
+
+      // Link all residents with this phone to the person
+      await this.residentModel.updateMany(
+        {
+          phone: normalizedMobile,
+          status: 'ACTIVE',
+          archived: { $ne: true },
+        },
+        {
+          $set: { personId: person._id },
+        },
+      ).exec();
+
+      // Update person name from first resident if it's still placeholder
+      if (person.name === 'Resident' && residentsByPhone[0].name) {
+        person.name = residentsByPhone[0].name;
+        if (residentsByPhone[0].email) {
+          person.email = residentsByPhone[0].email;
+        }
+        await person.save();
+      }
+
+      // Re-fetch residents now that they're linked
+      activeResidents = await this.residentModel
+        .find({
+          personId: person._id,
+          status: 'ACTIVE',
+          archived: { $ne: true },
+        })
+        .populate('tenantId')
+        .exec();
     }
 
     // Check if feature is enabled for at least one tenant
@@ -119,13 +162,13 @@ export class ResidentAuthService {
     }
 
     // Find Person by mobile
-    const person = await this.personModel.findOne({ mobile: normalizedMobile }).exec();
+    let person = await this.personModel.findOne({ mobile: normalizedMobile }).exec();
     if (!person) {
-      throw new UnauthorizedException('Person not found');
+      throw new UnauthorizedException('Person not found. Please request OTP first.');
     }
 
-    // Find active residents
-    const query: any = {
+    // Find active residents by personId
+    let query: any = {
       personId: person._id,
       status: 'ACTIVE',
       archived: { $ne: true },
@@ -136,17 +179,61 @@ export class ResidentAuthService {
       query.tenantId = new Types.ObjectId(tenantId);
     }
 
-    const activeResidents = await this.residentModel
+    let activeResidents = await this.residentModel
       .find(query)
       .populate('tenantId')
       .populate('roomId')
       .populate('bedId')
       .exec();
 
+    // If no residents found by personId, check by phone and link them
     if (activeResidents.length === 0) {
-      throw new ForbiddenException(
-        'No active residency found with portal access enabled.',
-      );
+      const phoneQuery: any = {
+        phone: normalizedMobile,
+        status: 'ACTIVE',
+        archived: { $ne: true },
+      };
+      if (tenantId) {
+        phoneQuery.tenantId = new Types.ObjectId(tenantId);
+      }
+
+      const residentsByPhone = await this.residentModel
+        .find(phoneQuery)
+        .populate('tenantId')
+        .populate('roomId')
+        .populate('bedId')
+        .exec();
+
+      if (residentsByPhone.length === 0) {
+        throw new ForbiddenException(
+          'No active residency found.',
+        );
+      }
+
+      // Link all residents with this phone to the person
+      await this.residentModel.updateMany(
+        phoneQuery,
+        {
+          $set: { personId: person._id },
+        },
+      ).exec();
+
+      // Update person name from first resident if it's still placeholder
+      if (person.name === 'Resident' && residentsByPhone[0].name) {
+        person.name = residentsByPhone[0].name;
+        if (residentsByPhone[0].email) {
+          person.email = residentsByPhone[0].email;
+        }
+        await person.save();
+      }
+
+      // Re-fetch residents now that they're linked
+      activeResidents = await this.residentModel
+        .find(query)
+        .populate('tenantId')
+        .populate('roomId')
+        .populate('bedId')
+        .exec();
     }
 
     // Check feature flag for each tenant and filter
@@ -207,11 +294,11 @@ export class ResidentAuthService {
     // Find Person by mobile
     const person = await this.personModel.findOne({ mobile: normalizedMobile }).exec();
     if (!person) {
-      throw new UnauthorizedException('Person not found');
+      throw new UnauthorizedException('Person not found. Please request OTP first.');
     }
 
-    // Find active resident for this tenant
-    const resident = await this.residentModel
+    // Find active resident for this tenant by personId
+    let resident = await this.residentModel
       .findOne({
         personId: person._id,
         tenantId: new Types.ObjectId(tenantId),
@@ -222,6 +309,40 @@ export class ResidentAuthService {
       .populate('roomId')
       .populate('bedId')
       .exec();
+
+    // If not found by personId, check by phone and link
+    if (!resident) {
+      resident = await this.residentModel
+        .findOne({
+          phone: normalizedMobile,
+          tenantId: new Types.ObjectId(tenantId),
+          status: 'ACTIVE',
+          archived: { $ne: true },
+        })
+        .populate('tenantId')
+        .populate('roomId')
+        .populate('bedId')
+        .exec();
+
+      if (!resident) {
+        throw new ForbiddenException(
+          'No active residency found for this PG.',
+        );
+      }
+
+      // Link resident to person
+      resident.personId = person._id;
+      await resident.save();
+
+      // Update person name if it's still placeholder
+      if (person.name === 'Resident' && resident.name) {
+        person.name = resident.name;
+        if (resident.email) {
+          person.email = resident.email;
+        }
+        await person.save();
+      }
+    }
 
     if (!resident) {
       throw new ForbiddenException(

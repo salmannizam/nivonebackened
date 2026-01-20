@@ -67,6 +67,7 @@ export class FeatureFlagService {
 
   /**
    * Get all features for a tenant
+   * Only returns features that have been assigned (have a feature flag record)
    * All feature flags are stored in the database
    */
   async getTenantFeatures(tenantId: string): Promise<Record<FeatureKey, boolean>> {
@@ -77,10 +78,9 @@ export class FeatureFlagService {
     const flags = await this.featureFlagModel.find({ tenantId: tenantObjectId }).exec();
     const result: Record<string, boolean> = {};
 
-    // Initialize all features from database
-    Object.values(FeatureKey).forEach((key) => {
-      const flag = flags.find((f) => f.featureKey === key);
-      result[key] = flag ? flag.enabled : true; // Default to enabled if not found
+    // Only return features that have been assigned (have a feature flag record)
+    flags.forEach((flag) => {
+      result[flag.featureKey] = flag.enabled;
     });
 
     return result as Record<FeatureKey, boolean>;
@@ -161,7 +161,24 @@ export class FeatureFlagService {
   }
 
   /**
+   * Check if a feature is assigned to a tenant (has a feature flag record)
+   */
+  async isFeatureAssigned(tenantId: string, featureKey: FeatureKey): Promise<boolean> {
+    const tenantObjectId = typeof tenantId === 'string' 
+      ? new Types.ObjectId(tenantId) 
+      : tenantId;
+    
+    const flag = await this.featureFlagModel.findOne({
+      tenantId: tenantObjectId,
+      featureKey,
+    }).exec();
+    
+    return flag !== null;
+  }
+
+  /**
    * Bulk update tenant features
+   * Only updates features that are already assigned (prevents creating new feature flags)
    */
   async updateTenantFeatures(
     tenantId: string,
@@ -171,13 +188,21 @@ export class FeatureFlagService {
       ? new Types.ObjectId(tenantId) 
       : tenantId;
 
-    const updates = Object.entries(features).map(([key, enabled]) => ({
-      updateOne: {
-        filter: { tenantId: tenantObjectId, featureKey: key as FeatureKey },
-        update: { $set: { enabled } },
-        upsert: true,
-      },
-    }));
+    // Only update features that are already assigned
+    const updates = [];
+    for (const [key, enabled] of Object.entries(features)) {
+      const featureKey = key as FeatureKey;
+      const isAssigned = await this.isFeatureAssigned(tenantId, featureKey);
+      
+      if (isAssigned) {
+        updates.push({
+          updateOne: {
+            filter: { tenantId: tenantObjectId, featureKey },
+            update: { $set: { enabled } },
+          },
+        });
+      }
+    }
 
     if (updates.length > 0) {
       await this.featureFlagModel.bulkWrite(updates as any);

@@ -74,28 +74,8 @@ export class FeatureFlagController {
     }
     
     // In self-hosted mode, allow updates but prevent enabling features not already assigned
-    const currentFeatures = await this.featureFlagService.getTenantFeatures(tenantId);
-    const updates: Partial<Record<FeatureKey, boolean>> = {};
-    
-    // Only allow disabling features that are currently enabled
-    // Prevent enabling features that weren't assigned by Super Admin
-    Object.entries(body.features).forEach(([key, enabled]) => {
-      const featureKey = key as FeatureKey;
-      if (currentFeatures[featureKey] && !enabled) {
-        // Allow disabling
-        updates[featureKey] = enabled;
-      } else if (!currentFeatures[featureKey] && enabled) {
-        // Prevent enabling features not assigned by Super Admin
-        // Silently ignore - tenants can't enable new features
-      } else if (currentFeatures[featureKey] && enabled) {
-        // Allow keeping enabled
-        updates[featureKey] = enabled;
-      }
-    });
-
-    if (Object.keys(updates).length > 0) {
-      await this.featureFlagService.updateTenantFeatures(tenantId, updates);
-    }
+    // The updateTenantFeatures method will only update features that are already assigned
+    await this.featureFlagService.updateTenantFeatures(tenantId, body.features);
     
     return { message: 'Features updated successfully' };
   }

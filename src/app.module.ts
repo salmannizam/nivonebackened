@@ -18,6 +18,7 @@ import { RoomsModule } from './rooms/rooms.module';
 import { BedsModule } from './beds/beds.module';
 import { ResidentsModule } from './residents/residents.module';
 import { PaymentsModule } from './payments/payments.module';
+import { SearchModule } from './search/search.module';
 import { ComplaintsModule } from './complaints/complaints.module';
 import { VisitorsModule } from './visitors/visitors.module';
 import { NoticesModule } from './notices/notices.module';
@@ -69,6 +70,7 @@ import { ResidentPortalModule } from './resident-portal/resident-portal.module';
     BedsModule,
     ResidentsModule,
     PaymentsModule,
+    SearchModule,
     ComplaintsModule,
     VisitorsModule,
     NoticesModule,

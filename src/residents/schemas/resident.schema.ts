@@ -110,9 +110,6 @@ export class Resident {
   @Prop({ type: Types.ObjectId, ref: 'Person' })
   personId?: Types.ObjectId; // Reference to global Person identity
 
-  @Prop({ default: false })
-  portalEnabled?: boolean; // Whether portal access is enabled for this resident
-
   @Prop()
   createdAt?: Date;
 
@@ -146,4 +143,4 @@ ResidentSchema.index({ tenantId: 1, expectedVacateDate: 1 });
 ResidentSchema.index({ tenantId: 1, status: 1, expectedVacateDate: 1 });
 // Person identity lookup (for resident portal)
 ResidentSchema.index({ personId: 1, status: 1 });
-ResidentSchema.index({ personId: 1, tenantId: 1, status: 1, portalEnabled: 1 });
+ResidentSchema.index({ personId: 1, tenantId: 1, status: 1 });

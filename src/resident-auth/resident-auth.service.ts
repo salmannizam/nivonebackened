@@ -50,12 +50,11 @@ export class ResidentAuthService {
       });
     }
 
-    // Check if person has any active residents with portal enabled
+    // Check if person has any active residents
     const activeResidents = await this.residentModel
       .find({
         personId: person._id,
         status: 'ACTIVE',
-        portalEnabled: true,
         archived: { $ne: true },
       })
       .populate('tenantId')
@@ -63,7 +62,7 @@ export class ResidentAuthService {
 
     if (activeResidents.length === 0) {
       throw new ForbiddenException(
-        'No active residency found with portal access enabled. Please contact your PG administrator.',
+        'No active residency found. Please contact your PG administrator.',
       );
     }
 
@@ -125,11 +124,10 @@ export class ResidentAuthService {
       throw new UnauthorizedException('Person not found');
     }
 
-    // Find active residents with portal enabled
+    // Find active residents
     const query: any = {
       personId: person._id,
       status: 'ACTIVE',
-      portalEnabled: true,
       archived: { $ne: true },
     };
 
@@ -218,7 +216,6 @@ export class ResidentAuthService {
         personId: person._id,
         tenantId: new Types.ObjectId(tenantId),
         status: 'ACTIVE',
-        portalEnabled: true,
         archived: { $ne: true },
       })
       .populate('tenantId')
@@ -228,7 +225,7 @@ export class ResidentAuthService {
 
     if (!resident) {
       throw new ForbiddenException(
-        'No active residency found with portal access enabled for this PG.',
+        'No active residency found for this PG.',
       );
     }
 
@@ -331,7 +328,7 @@ export class ResidentAuthService {
         .findById(payload.userId)
         .exec();
 
-      if (!resident || resident.status !== 'ACTIVE' || !resident.portalEnabled || resident.archived) {
+      if (!resident || resident.status !== 'ACTIVE' || resident.archived) {
         throw new UnauthorizedException('Resident access revoked');
       }
 

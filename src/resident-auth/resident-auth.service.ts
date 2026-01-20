@@ -236,16 +236,18 @@ export class ResidentAuthService {
         .exec();
     }
 
-    // Check feature flag for each tenant and filter
+    // Check feature flag for each tenant AND resident's portalEnabled flag
     const validResidents = [];
     for (const resident of activeResidents) {
       const residentTenantId = (resident.tenantId as any)._id?.toString() || (resident.tenantId as any).id?.toString();
       if (residentTenantId) {
-        const isEnabled = await this.featureFlagService.isFeatureEnabled(
+        const tenantFeatureEnabled = await this.featureFlagService.isFeatureEnabled(
           residentTenantId,
           FeatureKey.RESIDENT_PORTAL,
         );
-        if (isEnabled) {
+        // Both tenant feature flag AND resident's portalEnabled must be true
+        const residentPortalEnabled = (resident as any).portalEnabled !== false; // Default to true if not set (backward compatibility)
+        if (tenantFeatureEnabled && residentPortalEnabled) {
           validResidents.push(resident);
         }
       }
@@ -350,14 +352,22 @@ export class ResidentAuthService {
       );
     }
 
-    // Check feature flag
-    const isEnabled = await this.featureFlagService.isFeatureEnabled(
+    // Check tenant feature flag AND resident's portalEnabled
+    const tenantFeatureEnabled = await this.featureFlagService.isFeatureEnabled(
       tenantId,
       FeatureKey.RESIDENT_PORTAL,
     );
-    if (!isEnabled) {
+    if (!tenantFeatureEnabled) {
       throw new ForbiddenException(
         'Resident portal is not enabled for this PG.',
+      );
+    }
+
+    // Check if resident has portal access enabled
+    const residentPortalEnabled = (resident as any).portalEnabled !== false; // Default to true if not set (backward compatibility)
+    if (!residentPortalEnabled) {
+      throw new ForbiddenException(
+        'Portal access is disabled for your account. Please contact your administrator.',
       );
     }
 

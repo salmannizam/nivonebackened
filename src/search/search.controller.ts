@@ -17,6 +17,6 @@ export class SearchController {
     @User() user: any,
   ) {
     const safeQuery = (query || '').trim();
-    return this.searchService.search(query, tenantId, user);
+    return this.searchService.search(safeQuery, tenantId, user);
   }
 }

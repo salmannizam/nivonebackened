@@ -47,12 +47,12 @@ export class SearchService {
         this.featureFlagService.isFeatureEnabledForUser(tenantId, userId, FeatureKey.EXTRA_PAYMENTS),
       ]);
 
-    const regex = new RegExp(escapeRegExp(normalizedQuery), 'i');
+    const regexPattern = escapeRegExp(normalizedQuery);
     const [residents, rooms, payments] = await Promise.all([
-      canViewResidents ? this.searchResidents(tenantObjectId, regex) : [],
-      canViewRooms ? this.searchRooms(tenantObjectId, regex) : [],
+      canViewResidents ? this.searchResidents(tenantObjectId, regexPattern) : [],
+      canViewRooms ? this.searchRooms(tenantObjectId, regexPattern) : [],
       canViewRentPayments || canViewExtraPayments
-        ? this.searchPayments(tenantObjectId, regex, normalizedQuery)
+        ? this.searchPayments(tenantObjectId, regexPattern, normalizedQuery)
         : [],
     ]);
 
@@ -71,17 +71,18 @@ export class SearchService {
     };
   }
 
-  private async searchResidents(tenantId: Types.ObjectId, regex: RegExp) {
+  private async searchResidents(tenantId: Types.ObjectId, regexPattern: string) {
     const residents = await this.residentModel
       .find({
         tenantId,
         $or: [
-          { name: regex },
-          { phone: regex },
-          { alternatePhone: regex },
+          { name: { $regex: regexPattern, $options: 'i' } },
+          { phone: { $regex: regexPattern, $options: 'i' } },
+          { alternatePhone: { $regex: regexPattern, $options: 'i' } },
+          { email: { $regex: regexPattern, $options: 'i' } },
         ],
       })
-      .select('name phone roomId')
+      .select('name phone email roomId')
       .populate('roomId', 'roomNumber')
       .limit(5)
       .lean();
@@ -98,9 +99,12 @@ export class SearchService {
     });
   }
 
-  private async searchRooms(tenantId: Types.ObjectId, regex: RegExp) {
+  private async searchRooms(tenantId: Types.ObjectId, regexPattern: string) {
     const rooms = await this.roomModel
-      .find({ tenantId, roomNumber: regex })
+      .find({
+        tenantId,
+        roomNumber: { $regex: regexPattern, $options: 'i' },
+      })
       .populate('buildingId', 'name')
       .limit(5)
       .lean();
@@ -113,10 +117,10 @@ export class SearchService {
     }));
   }
 
-  private async searchPayments(tenantId: Types.ObjectId, regex: RegExp, query: string) {
+  private async searchPayments(tenantId: Types.ObjectId, regexPattern: string, query: string) {
     const orConditions: any[] = [
-      { transactionId: { $regex: regex } },
-      { notes: { $regex: regex } },
+      { transactionId: { $regex: regexPattern, $options: 'i' } },
+      { notes: { $regex: regexPattern, $options: 'i' } },
     ];
 
     if (Types.ObjectId.isValid(query)) {

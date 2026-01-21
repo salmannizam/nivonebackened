@@ -32,7 +32,10 @@ export class SearchService {
   async search(query: string, tenantId: string, user: any) {
     try {
       const normalizedQuery = query?.trim();
+      console.log('[SearchService] Search called with:', { query, normalizedQuery, tenantId, userId: user?._id || user?.userId });
+      
       if (!normalizedQuery) {
+        console.log('[SearchService] Empty query, returning empty results');
         return this.emptyResult();
       }
 
@@ -48,8 +51,16 @@ export class SearchService {
           this.featureFlagService.isFeatureEnabledForUser(tenantId, userId, FeatureKey.EXTRA_PAYMENTS),
         ]);
 
+      console.log('[SearchService] Feature flags:', {
+        canViewResidents,
+        canViewRooms,
+        canViewRentPayments,
+        canViewExtraPayments,
+      });
+
       // Create regex pattern for partial matching (escape special chars for security)
       const regexPattern = escapeRegExp(normalizedQuery);
+      console.log('[SearchService] Regex pattern:', regexPattern);
       
       const [residents, rooms, payments] = await Promise.all([
         canViewResidents ? this.searchResidents(tenantObjectId, regexPattern) : [],
@@ -59,6 +70,12 @@ export class SearchService {
           : [],
       ]);
 
+      console.log('[SearchService] Results:', {
+        residentsCount: residents.length,
+        roomsCount: rooms.length,
+        paymentsCount: payments.length,
+      });
+
       return {
         residents,
         rooms,
@@ -67,6 +84,7 @@ export class SearchService {
     } catch (error) {
       // Log error and return empty results instead of crashing
       console.error('[SearchService] Error during search:', error);
+      console.error('[SearchService] Error stack:', error.stack);
       return this.emptyResult();
     }
   }
@@ -80,35 +98,69 @@ export class SearchService {
   }
 
   private async searchResidents(tenantId: Types.ObjectId, regexPattern: string) {
-    // Build the search query - MongoDB $regex handles null/undefined fields gracefully
-    const searchQuery: any = {
-      tenantId,
-      archived: { $ne: true }, // Exclude archived residents
-      $or: [
-        { name: { $regex: regexPattern, $options: 'i' } },
-        { phone: { $regex: regexPattern, $options: 'i' } },
-        { alternatePhone: { $regex: regexPattern, $options: 'i' } },
-        { email: { $regex: regexPattern, $options: 'i' } },
-      ],
-    };
+    try {
+      // First, check if we have any residents for this tenant
+      const totalResidents = await this.residentModel.countDocuments({
+        tenantId,
+        archived: { $ne: true },
+      });
+      console.log('[SearchResidents] Total residents for tenant:', totalResidents);
 
-    const residents = await this.residentModel
-      .find(searchQuery)
-      .select('name phone email roomId')
-      .populate('roomId', 'roomNumber')
-      .limit(5)
-      .lean();
-    
-    return residents.map((resident) => {
-      const room = resident.roomId as any;
-      const roomMeta = room?.roomNumber ? `Room ${room.roomNumber}` : undefined;
-      return {
-        id: resident._id.toString(),
-        title: resident.name,
-        subtitle: resident.phone,
-        meta: roomMeta,
+      // Build the search query - MongoDB $regex handles null/undefined fields gracefully
+      // archived: { $ne: true } matches false, null, and undefined (all non-archived)
+      const searchQuery: any = {
+        tenantId,
+        archived: { $ne: true }, // Exclude archived residents (matches false, null, undefined)
+        $or: [
+          { name: { $regex: regexPattern, $options: 'i' } },
+          { phone: { $regex: regexPattern, $options: 'i' } },
+          { alternatePhone: { $regex: regexPattern, $options: 'i' } },
+          { email: { $regex: regexPattern, $options: 'i' } },
+        ],
       };
-    });
+
+      console.log('[SearchResidents] Query:', JSON.stringify(searchQuery, null, 2));
+      console.log('[SearchResidents] TenantId type:', typeof tenantId, 'Value:', tenantId.toString());
+
+      const residents = await this.residentModel
+        .find(searchQuery)
+        .select('name phone email roomId')
+        .populate('roomId', 'roomNumber')
+        .limit(5)
+        .lean();
+      
+      console.log('[SearchResidents] Found:', residents.length, 'residents');
+      if (residents.length > 0) {
+        console.log('[SearchResidents] First resident:', {
+          name: residents[0].name,
+          phone: residents[0].phone,
+          email: residents[0].email,
+        });
+      } else if (totalResidents > 0) {
+        // If we have residents but search returned nothing, try a simpler query
+        console.log('[SearchResidents] Trying simpler query without regex...');
+        const testResidents = await this.residentModel
+          .find({ tenantId, archived: { $ne: true } })
+          .select('name phone email')
+          .limit(2)
+          .lean();
+        console.log('[SearchResidents] Test query found:', testResidents.length, 'Sample names:', testResidents.map((r: any) => r.name));
+      }
+
+      return residents.map((resident) => {
+        const room = resident.roomId as any;
+        const roomMeta = room?.roomNumber ? `Room ${room.roomNumber}` : undefined;
+        return {
+          id: resident._id.toString(),
+          title: resident.name,
+          subtitle: resident.phone,
+          meta: roomMeta,
+        };
+      });
+    } catch (error) {
+      console.error('[SearchResidents] Error:', error);
+      throw error;
+    }
   }
 
   private async searchRooms(tenantId: Types.ObjectId, regexPattern: string) {

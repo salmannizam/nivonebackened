@@ -3,10 +3,9 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SearchService } from './search.service';
 import { TenantId } from '../common/decorators/tenant.decorator';
 import { User } from '../common/decorators/user.decorator';
-import { FeatureGuard } from '../common/guards/feature.guard';
 
 @Controller('search')
-@UseGuards(JwtAuthGuard, FeatureGuard)
+@UseGuards(JwtAuthGuard)
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
@@ -17,6 +16,7 @@ export class SearchController {
     @User() user: any,
   ) {
     const safeQuery = (query || '').trim();
+    console.log('[SearchController] Received search request:', { query, safeQuery, tenantId, userId: user?._id || user?.userId });
     return this.searchService.search(safeQuery, tenantId, user);
   }
 }

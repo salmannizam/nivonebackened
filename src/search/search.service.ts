@@ -163,68 +163,56 @@ export class SearchService {
   }
 
   private async searchRooms(tenantId: string, regexPattern: string) {
-      // Use aggregation to search by both room number and building name
-      // IMPORTANT: Filter buildings by tenantId for security
-      // Convert tenantId string to ObjectId for aggregation
-      const tenantObjectId = new Types.ObjectId(tenantId);
-      const rooms = await this.roomModel.aggregate([
-        {
-          $match: {
-            tenantId: tenantObjectId,
-          },
-        },
-      {
-        $lookup: {
-          from: 'buildings',
-          let: { buildingId: '$buildingId', roomTenantId: tenantObjectId },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ['$_id', '$$buildingId'] },
-                    { $eq: ['$tenantId', '$$roomTenantId'] }, // Security: ensure building belongs to same tenant
-                  ],
-                },
-              },
-            },
-          ],
-          as: 'building',
-        },
-      },
-      {
-        $unwind: {
-          path: '$building',
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      {
-        $match: {
-          $or: [
-            { roomNumber: { $regex: regexPattern, $options: 'i' } },
-            { 'building.name': { $regex: regexPattern, $options: 'i' } },
-          ],
-        },
-      },
-      {
-        $limit: 5,
-      },
-      {
-        $project: {
-          _id: 1,
-          roomNumber: 1,
-          floor: 1,
-          buildingName: '$building.name',
-        },
-      },
-    ]);
+    try {
+      // First, check if we have any rooms for this tenant
+      const totalRooms = await this.roomModel.countDocuments({ tenantId });
+      console.log('[SearchRooms] Total rooms for tenant:', totalRooms);
 
-    return rooms.map((room) => ({
-      id: room._id.toString(),
-      title: room.roomNumber,
-      subtitle: room.buildingName || 'Unknown Building',
-      meta: `Floor ${room.floor || 'N/A'}`,
-    }));
+      // Search rooms by room number (simpler approach, like residents search)
+      const searchQuery: any = {
+        tenantId,
+        roomNumber: { $regex: regexPattern, $options: 'i' },
+      };
+
+      console.log('[SearchRooms] Query:', JSON.stringify(searchQuery, null, 2));
+
+      const rooms = await this.roomModel
+        .find(searchQuery)
+        .populate('buildingId', 'name')
+        .select('roomNumber floor buildingId')
+        .limit(5)
+        .lean();
+
+      console.log('[SearchRooms] Found:', rooms.length, 'rooms');
+      if (rooms.length > 0) {
+        console.log('[SearchRooms] First room:', {
+          roomNumber: rooms[0].roomNumber,
+          building: (rooms[0].buildingId as any)?.name,
+        });
+      } else if (totalRooms > 0) {
+        // If we have rooms but search returned nothing, try a simpler query
+        console.log('[SearchRooms] Trying simpler query without regex...');
+        const testRooms = await this.roomModel
+          .find({ tenantId })
+          .select('roomNumber')
+          .limit(2)
+          .lean();
+        console.log('[SearchRooms] Test query found:', testRooms.length, 'Sample room numbers:', testRooms.map((r: any) => r.roomNumber));
+      }
+
+      return rooms.map((room) => {
+        const building = room.buildingId as any;
+        return {
+          id: room._id.toString(),
+          title: room.roomNumber,
+          subtitle: building?.name || 'Unknown Building',
+          meta: `Floor ${room.floor || 'N/A'}`,
+        };
+      });
+    } catch (error) {
+      console.error('[SearchRooms] Error:', error);
+      throw error;
+    }
   }
 
   private async searchPayments(

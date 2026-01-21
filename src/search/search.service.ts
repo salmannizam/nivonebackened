@@ -9,8 +9,7 @@ import { Payment, PaymentDocument } from '../payments/schemas/payment.schema';
 
 type SearchResultItem = {
   id: string;
-  title: string;
-  subtitle?: string;
+  label: string;
   meta?: string;
 };
 
@@ -148,12 +147,15 @@ export class SearchService {
 
       return residents.map((resident) => {
         const room = resident.roomId as any;
-        const roomMeta = room?.roomNumber ? `Room ${room.roomNumber}` : undefined;
+        const roomNumber = room?.roomNumber;
+        // Format: "Name - Room XX" or just "Name" if no room
+        const label = roomNumber 
+          ? `${resident.name} - Room ${roomNumber}`
+          : resident.name;
         return {
           id: resident._id.toString(),
-          title: resident.name,
-          subtitle: resident.phone,
-          meta: roomMeta,
+          label,
+          meta: resident.phone, // Show phone as meta info
         };
       });
     } catch (error) {
@@ -202,11 +204,19 @@ export class SearchService {
 
       return rooms.map((room) => {
         const building = room.buildingId as any;
+        const buildingName = building?.name;
+        const floor = room.floor;
+        // Format: "Room XX - Building Name" or "Room XX - Floor X" or just "Room XX"
+        let label = `Room ${room.roomNumber}`;
+        if (buildingName) {
+          label += ` - ${buildingName}`;
+        } else if (floor) {
+          label += ` - Floor ${floor}`;
+        }
         return {
           id: room._id.toString(),
-          title: room.roomNumber,
-          subtitle: building?.name || 'Unknown Building',
-          meta: `Floor ${room.floor || 'N/A'}`,
+          label,
+          meta: floor ? `Floor ${floor}` : undefined,
         };
       });
     } catch (error) {
@@ -259,11 +269,10 @@ export class SearchService {
 
     return payments.map((payment) => ({
       id: payment._id.toString(),
-      title: payment.transactionId
+      label: payment.transactionId
         ? `Txn ${payment.transactionId}`
         : payment._id.toString(),
-      subtitle: `${payment.paymentType} • ₹${payment.amount?.toLocaleString('en-IN') ?? '0'}`,
-      meta: payment.status,
+      meta: `${payment.paymentType} • ₹${payment.amount?.toLocaleString('en-IN') ?? '0'} • ${payment.status}`,
     }));
   }
 }

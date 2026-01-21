@@ -123,7 +123,9 @@ export class Resident {
 export const ResidentSchema = SchemaFactory.createForClass(Resident);
 // Multi-tenant isolation indexes
 ResidentSchema.index({ tenantId: 1, roomId: 1 });
-ResidentSchema.index({ tenantId: 1, phone: 1 });
+// Unique phone number per tenant (for resident login)
+// Only enforce uniqueness for non-archived residents
+ResidentSchema.index({ tenantId: 1, phone: 1 }, { unique: true, partialFilterExpression: { archived: { $ne: true } } });
 // Bed-based queries (bed is source of truth for rent)
 ResidentSchema.index({ tenantId: 1, bedId: 1 });
 ResidentSchema.index({ bedId: 1, status: 1 });

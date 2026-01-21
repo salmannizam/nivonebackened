@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -50,12 +50,33 @@ export class ResidentsService {
       throw new BadRequestException('Bed does not belong to the specified room');
     }
 
+    // Check if phone number already exists for this tenant (excluding archived residents)
+    const existingResident = await this.residentModel.findOne({
+      tenantId,
+      phone: createResidentDto.phone,
+      archived: { $ne: true },
+    }).exec();
+
+    if (existingResident) {
+      throw new ConflictException(`Phone number ${createResidentDto.phone} is already registered to another resident in this tenant. Each mobile number must be unique per tenant.`);
+    }
+
     const resident = new this.residentModel({
       ...createResidentDto,
       tenantId,
       status: 'ACTIVE', // Default status on creation
     });
-    const savedResident = await resident.save();
+    
+    let savedResident;
+    try {
+      savedResident = await resident.save();
+    } catch (error: any) {
+      // Handle MongoDB duplicate key error (in case index wasn't applied yet)
+      if (error.code === 11000 && error.keyPattern?.phone) {
+        throw new ConflictException(`Phone number ${createResidentDto.phone} is already registered to another resident in this tenant. Each mobile number must be unique per tenant.`);
+      }
+      throw error;
+    }
 
     // Update bed status to OCCUPIED
     await this.bedsService.update(
@@ -227,11 +248,35 @@ export class ResidentsService {
   }
 
   async update(id: string, updateResidentDto: UpdateResidentDto, tenantId: string): Promise<any> {
-    const resident = await this.residentModel
-      .findOneAndUpdate({ _id: id, tenantId }, updateResidentDto, { new: true })
-      .populate('roomId')
-      .populate('bedId')
-      .exec();
+    // If phone number is being updated, check for duplicates
+    if (updateResidentDto.phone) {
+      const existingResident = await this.residentModel.findOne({
+        tenantId,
+        phone: updateResidentDto.phone,
+        _id: { $ne: id }, // Exclude current resident
+        archived: { $ne: true },
+      }).exec();
+
+      if (existingResident) {
+        throw new ConflictException(`Phone number ${updateResidentDto.phone} is already registered to another resident in this tenant. Each mobile number must be unique per tenant.`);
+      }
+    }
+
+    let resident;
+    try {
+      resident = await this.residentModel
+        .findOneAndUpdate({ _id: id, tenantId }, updateResidentDto, { new: true })
+        .populate('roomId')
+        .populate('bedId')
+        .exec();
+    } catch (error: any) {
+      // Handle MongoDB duplicate key error (in case index wasn't applied yet)
+      if (error.code === 11000 && error.keyPattern?.phone) {
+        throw new ConflictException(`Phone number ${updateResidentDto.phone} is already registered to another resident in this tenant. Each mobile number must be unique per tenant.`);
+      }
+      throw error;
+    }
+
     if (!resident) {
       throw new NotFoundException('Resident not found');
     }

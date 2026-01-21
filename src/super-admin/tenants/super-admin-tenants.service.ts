@@ -20,9 +20,15 @@ export class SuperAdminTenantsService {
     // Extract owner info from DTO
     const { ownerEmail, ownerPassword, ownerName, ...tenantData } = createTenantDto;
 
-    // Validate owner fields are provided
-    if (!ownerEmail || !ownerPassword || !ownerName) {
-      throw new BadRequestException('Owner email, password, and name are required when creating a tenant');
+    // Validate owner fields are provided and not empty
+    if (!ownerEmail || !ownerEmail.trim()) {
+      throw new BadRequestException('Owner email is required and cannot be empty');
+    }
+    if (!ownerPassword || !ownerPassword.trim()) {
+      throw new BadRequestException('Owner password is required and cannot be empty');
+    }
+    if (!ownerName || !ownerName.trim()) {
+      throw new BadRequestException('Owner name is required and cannot be empty');
     }
 
     // Create tenant first

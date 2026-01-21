@@ -39,8 +39,7 @@ export class SearchService {
         return this.emptyResult();
       }
 
-      const tenantObjectId =
-        typeof tenantId === 'string' ? new Types.ObjectId(tenantId) : tenantId;
+      // Use tenantId as string (Mongoose handles conversion automatically, like in residents service)
       const userId = user?._id || user?.userId;
 
       const [canViewResidents, canViewRooms, canViewRentPayments, canViewExtraPayments] =
@@ -63,10 +62,10 @@ export class SearchService {
       console.log('[SearchService] Regex pattern:', regexPattern);
       
       const [residents, rooms, payments] = await Promise.all([
-        canViewResidents ? this.searchResidents(tenantObjectId, regexPattern) : [],
-        canViewRooms ? this.searchRooms(tenantObjectId, regexPattern) : [],
+        canViewResidents ? this.searchResidents(tenantId, regexPattern) : [],
+        canViewRooms ? this.searchRooms(tenantId, regexPattern) : [],
         canViewRentPayments || canViewExtraPayments
-          ? this.searchPayments(tenantObjectId, regexPattern, normalizedQuery, canViewRentPayments, canViewExtraPayments)
+          ? this.searchPayments(tenantId, regexPattern, normalizedQuery, canViewRentPayments, canViewExtraPayments)
           : [],
       ]);
 
@@ -97,7 +96,7 @@ export class SearchService {
     };
   }
 
-  private async searchResidents(tenantId: Types.ObjectId, regexPattern: string) {
+  private async searchResidents(tenantId: string, regexPattern: string) {
     try {
       // First, check if we have any residents for this tenant
       const totalResidents = await this.residentModel.countDocuments({
@@ -120,7 +119,7 @@ export class SearchService {
       };
 
       console.log('[SearchResidents] Query:', JSON.stringify(searchQuery, null, 2));
-      console.log('[SearchResidents] TenantId type:', typeof tenantId, 'Value:', tenantId.toString());
+      console.log('[SearchResidents] TenantId type:', typeof tenantId, 'Value:', tenantId);
 
       const residents = await this.residentModel
         .find(searchQuery)
@@ -163,19 +162,21 @@ export class SearchService {
     }
   }
 
-  private async searchRooms(tenantId: Types.ObjectId, regexPattern: string) {
-    // Use aggregation to search by both room number and building name
-    // IMPORTANT: Filter buildings by tenantId for security
-    const rooms = await this.roomModel.aggregate([
-      {
-        $match: {
-          tenantId,
+  private async searchRooms(tenantId: string, regexPattern: string) {
+      // Use aggregation to search by both room number and building name
+      // IMPORTANT: Filter buildings by tenantId for security
+      // Convert tenantId string to ObjectId for aggregation
+      const tenantObjectId = new Types.ObjectId(tenantId);
+      const rooms = await this.roomModel.aggregate([
+        {
+          $match: {
+            tenantId: tenantObjectId,
+          },
         },
-      },
       {
         $lookup: {
           from: 'buildings',
-          let: { buildingId: '$buildingId', roomTenantId: '$tenantId' },
+          let: { buildingId: '$buildingId', roomTenantId: tenantObjectId },
           pipeline: [
             {
               $match: {
@@ -227,7 +228,7 @@ export class SearchService {
   }
 
   private async searchPayments(
-    tenantId: Types.ObjectId,
+    tenantId: string,
     regexPattern: string,
     query: string,
     canViewRentPayments: boolean,

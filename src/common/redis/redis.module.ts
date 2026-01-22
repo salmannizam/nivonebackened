@@ -8,24 +8,23 @@ import Redis from 'ioredis';
     {
       provide: 'REDIS_CLIENT',
       useFactory: (configService: ConfigService) => {
-        const redisHost = configService.get<string>('REDIS_HOST', 'localhost');
+        const redisHost = configService.get<string>('REDIS_HOST', '127.0.0.1');
         const redisPort = configService.get<number>('REDIS_PORT', 6379);
-        const password = configService.get<string>('REDIS_PASSWORD', '');
+        const password = configService.get<string>('REDIS_PASSWORD');
         const redisDb = configService.get<number>('REDIS_DB', 0);
 
-        console.log(`🔌 Connecting to Redis at ${redisHost}:${redisPort} (DB: ${redisDb})`);
+        console.log(
+          `🔌 Connecting to Redis at ${redisHost}:${redisPort} (DB: ${redisDb})`,
+        );
+
         return new Redis({
           host: redisHost,
           port: redisPort,
-          password: password || undefined,
+          password: password, // password is REQUIRED in your case
           db: redisDb,
-          retryStrategy: (times) => {
-            const delay = Math.min(times * 50, 2000);
-            return delay;
-          },
           enableReadyCheck: true,
           maxRetriesPerRequest: null,
-          lazyConnect: true,
+          retryStrategy: (times) => Math.min(times * 50, 2000),
         });
       },
       inject: [ConfigService],

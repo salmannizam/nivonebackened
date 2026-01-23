@@ -253,21 +253,8 @@ export class AuthService {
    * Tenant slug is provided by frontend (admin or tenant during signup)
    */
   async signup(signupDto: SignupDto, requestHost: string): Promise<{ tenantSlug: string; message: string }> {
-    // Check if signup domain validation is bypassed (for development/testing)
-    const allowSignupFromAnyDomain = this.configService.get<string>('ALLOW_SIGNUP_FROM_ANY_DOMAIN', 'false') === 'true';
-    
-    // Validate signup is from root domain (not tenant subdomain) unless bypassed
-    if (!allowSignupFromAnyDomain) {
-      const isRootDomain = this.isRootDomain(requestHost);
-      if (!isRootDomain) {
-        console.warn(`[Signup] Rejected signup attempt from host: ${requestHost}`);
-        throw new BadRequestException(
-          `Signup is only allowed from the root domain. Current host: ${requestHost || 'unknown'}. Please access signup from the main domain (e.g., nivaasone.com) or localhost for development. To allow signup from any domain in development, set ALLOW_SIGNUP_FROM_ANY_DOMAIN=true in your .env file.`
-        );
-      }
-    } else {
-      console.log(`[Signup] Bypassing domain validation (ALLOW_SIGNUP_FROM_ANY_DOMAIN=true) for host: ${requestHost}`);
-    }
+    // Allow signup from any domain (domain validation disabled)
+    console.log(`[Signup] Processing signup request from host: ${requestHost || 'unknown'}`);
 
     // Use tenant slug from request body (provided by frontend)
     const tenantSlug = signupDto.tenantSlug.toLowerCase().trim();

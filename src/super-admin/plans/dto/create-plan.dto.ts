@@ -10,7 +10,8 @@ import {
   IsNotEmpty, 
   MinLength, 
   MaxLength, 
-  Matches 
+  Matches,
+  ArrayMinSize
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { BillingCycle } from '../../../common/schemas/plan.schema';
@@ -48,10 +49,9 @@ export class CreatePlanDto {
   @IsEnum(BillingCycle, { message: 'Billing cycle must be either monthly or yearly' })
   billingCycle: BillingCycle;
 
-  @IsArray()
-  @IsString({ each: true })
-  @IsNotEmpty({ message: 'At least one feature must be selected' })
-  @MinLength(1, { message: 'At least one feature must be selected' })
+  @IsArray({ message: 'Features must be an array' })
+  @IsString({ each: true, message: 'Each feature must be a string' })
+  @ArrayMinSize(1, { message: 'At least one feature must be selected' })
   features: string[]; // Array of FeatureKey values - required, at least one
 
   @IsOptional()

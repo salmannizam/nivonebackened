@@ -38,16 +38,7 @@ export class SuperAdminTenantsController {
     return this.superAdminTenantsService.getPlatformStats();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.superAdminTenantsService.findOne(id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTenantDto: UpdateTenantDto) {
-    return this.superAdminTenantsService.update(id, updateTenantDto);
-  }
-
+  // Specific routes must come before generic :id route
   @Post(':id/suspend')
   suspend(@Param('id') id: string) {
     return this.superAdminTenantsService.suspend(id);
@@ -56,11 +47,6 @@ export class SuperAdminTenantsController {
   @Post(':id/activate')
   activate(@Param('id') id: string) {
     return this.superAdminTenantsService.activate(id);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.superAdminTenantsService.remove(id);
   }
 
   @Post(':id/change-owner-password')
@@ -94,5 +80,21 @@ export class SuperAdminTenantsController {
       user: result.user,
       tenant: result.tenant,
     });
+  }
+
+  // Generic routes come after specific routes
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.superAdminTenantsService.findOne(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() updateTenantDto: UpdateTenantDto) {
+    return this.superAdminTenantsService.update(id, updateTenantDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.superAdminTenantsService.remove(id);
   }
 }

@@ -63,6 +63,14 @@ export class SuperAdminTenantsController {
     return this.superAdminTenantsService.remove(id);
   }
 
+  @Post(':id/change-owner-password')
+  async changeOwnerPassword(
+    @Param('id') id: string,
+    @Body() body: { password: string },
+  ) {
+    return this.superAdminTenantsService.changeOwnerPassword(id, body.password);
+  }
+
   @Post(':id/impersonate')
   async impersonate(@Param('id') id: string, @Response() res: ExpressResponse) {
     const result = await this.superAdminTenantsService.getImpersonationToken(id);

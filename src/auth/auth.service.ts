@@ -253,10 +253,20 @@ export class AuthService {
    * Tenant slug is provided by frontend (admin or tenant during signup)
    */
   async signup(signupDto: SignupDto, requestHost: string): Promise<{ tenantSlug: string; message: string }> {
-    // Validate signup is from root domain (not tenant subdomain)
-    const isRootDomain = this.isRootDomain(requestHost);
-    if (!isRootDomain) {
-      throw new BadRequestException('Signup is only allowed from the root domain.');
+    // Check if signup domain validation is bypassed (for development/testing)
+    const allowSignupFromAnyDomain = this.configService.get<string>('ALLOW_SIGNUP_FROM_ANY_DOMAIN', 'false') === 'true';
+    
+    // Validate signup is from root domain (not tenant subdomain) unless bypassed
+    if (!allowSignupFromAnyDomain) {
+      const isRootDomain = this.isRootDomain(requestHost);
+      if (!isRootDomain) {
+        console.warn(`[Signup] Rejected signup attempt from host: ${requestHost}`);
+        throw new BadRequestException(
+          `Signup is only allowed from the root domain. Current host: ${requestHost || 'unknown'}. Please access signup from the main domain (e.g., nivaasone.com) or localhost for development. To allow signup from any domain in development, set ALLOW_SIGNUP_FROM_ANY_DOMAIN=true in your .env file.`
+        );
+      }
+    } else {
+      console.log(`[Signup] Bypassing domain validation (ALLOW_SIGNUP_FROM_ANY_DOMAIN=true) for host: ${requestHost}`);
     }
 
     // Use tenant slug from request body (provided by frontend)
@@ -399,7 +409,10 @@ export class AuthService {
    * SECURITY: Validates host header to prevent subdomain bypass
    */
   private isRootDomain(host: string): boolean {
-    if (!host || typeof host !== 'string') return false;
+    if (!host || typeof host !== 'string') {
+      console.warn('[isRootDomain] Invalid host:', host);
+      return false;
+    }
     
     // Sanitize host (remove port if present)
     const hostWithoutPort = host.split(':')[0].toLowerCase().trim();
@@ -409,11 +422,17 @@ export class AuthService {
     if (isIPAddress) {
       // Only allow localhost IPs (127.0.0.1, 192.168.x.x, 10.x.x.x, 172.16-31.x.x)
       const isLocalIP = /^(127\.|192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(hostWithoutPort);
-      return isLocalIP;
+      if (isLocalIP) {
+        console.log(`[isRootDomain] Allowed local IP: ${hostWithoutPort}`);
+        return true;
+      }
+      console.warn(`[isRootDomain] Rejected non-local IP: ${hostWithoutPort}`);
+      return false;
     }
     
     // Check if it's localhost (development)
     if (hostWithoutPort === 'localhost' || hostWithoutPort === '127.0.0.1') {
+      console.log(`[isRootDomain] Allowed localhost: ${hostWithoutPort}`);
       return true;
     }
     
@@ -421,11 +440,13 @@ export class AuthService {
     const parts = hostWithoutPort.split('.');
     if (parts.length < 2) {
       // Invalid host format
+      console.warn(`[isRootDomain] Invalid host format (less than 2 parts): ${hostWithoutPort}`);
       return false;
     }
     
     if (parts.length === 2) {
       // No subdomain (e.g., nivaasone.com) - this is root domain
+      console.log(`[isRootDomain] Allowed root domain (2 parts): ${hostWithoutPort}`);
       return true;
     }
     
@@ -433,7 +454,13 @@ export class AuthService {
     // Root domain if subdomain is www, api, or empty
     // Reject all other subdomains to prevent bypass
     const allowedSubdomains = ['www', 'api', ''];
-    return allowedSubdomains.includes(subdomain);
+    const isAllowed = allowedSubdomains.includes(subdomain);
+    if (isAllowed) {
+      console.log(`[isRootDomain] Allowed subdomain: ${subdomain} for host: ${hostWithoutPort}`);
+    } else {
+      console.warn(`[isRootDomain] Rejected subdomain: ${subdomain} for host: ${hostWithoutPort}`);
+    }
+    return isAllowed;
   }
 
   /**

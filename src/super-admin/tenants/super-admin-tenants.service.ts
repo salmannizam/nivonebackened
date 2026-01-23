@@ -127,6 +127,32 @@ export class SuperAdminTenantsService {
     };
   }
 
+  async changeOwnerPassword(tenantId: string, newPassword: string) {
+    // Find tenant
+    const tenant = await this.tenantsService.findOne(tenantId) as any;
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    // Find owner user for this tenant
+    const owners = await this.usersService.findAll(tenantId, { role: 'OWNER' });
+    if (!owners || owners.length === 0) {
+      throw new NotFoundException('Owner user not found for this tenant');
+    }
+
+    const ownerUser = owners[0] as any;
+
+    // Validate password
+    if (!newPassword || newPassword.trim().length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters long');
+    }
+
+    // Update owner password (UsersService will hash it)
+    await this.usersService.update(ownerUser._id || ownerUser.id, { password: newPassword }, tenantId);
+
+    return { message: 'Owner password updated successfully' };
+  }
+
   async getImpersonationToken(tenantId: string) {
     const tenant = await this.tenantsService.findOne(tenantId) as any;
     
